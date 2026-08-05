@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Typing Trainer — PSII Practice</title>
+<style>
+  :root{
+    --bg:#0f1115; --card:#1a1d24; --card2:#22262f; --border:#2e333d;
+    --txt:#e8eaed; --muted:#9aa0a6; --accent:#ff6b35; --accent2:#ffb347;
+    --green:#34d399; --red:#f87171; --mono:'SF Mono','Fira Code','Cascadia Code',Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    background:var(--bg); color:var(--txt); min-height:100vh;
+    display:flex; flex-direction:column; align-items:center; padding:24px 16px 60px;
+  }
+  h1{font-size:1.6rem; margin-bottom:4px;}
+  h1 span{color:var(--accent);}
+  .subtitle{color:var(--muted); font-size:.85rem; margin-bottom:24px;}
+
+  /* ===== Setup bar ===== */
+  .setup{
+    display:flex; gap:16px; flex-wrap:wrap; justify-content:center;
+    margin-bottom:28px; max-width:700px;
+  }
+  .setup-group{display:flex; flex-direction:column; gap:6px; align-items:center;}
+  .setup-label{font-size:.72rem; color:var(--muted); text-transform:uppercase; letter-spacing:1px;}
+  .opt-row{display:flex; gap:4px; flex-wrap:wrap; justify-content:center;}
+  .opt{
+    padding:6px 14px; border:1px solid var(--border); background:var(--card);
+    color:var(--muted); border-radius:8px; cursor:pointer; font-size:.82rem;
+    transition:all .15s; user-select:none;
+  }
+  .opt:hover{border-color:var(--accent2); color:var(--txt);}
+  .opt.active{background:var(--accent); border-color:var(--accent); color:#fff; font-weight:600;}
+
+  /* ===== Stats bar (during test) ===== */
+  .live-stats{
+    display:flex; gap:32px; justify-content:center; margin-bottom:16px;
+    opacity:0; transition:opacity .3s;
+  }
+  .live-stats.show{opacity:1;}
+  .live-stat{text-align:center;}
+  .live-stat .num{font-size:1.8rem; font-weight:700; font-family:var(--mono);}
+  .live-stat .num.warn{color:var(--red);}
+  .live-stat .lbl{font-size:.72rem; color:var(--muted); text-transform:uppercase; letter-spacing:1px;}
+
+  /* ===== Typing area ===== */
+  .type-box{
+    max-width:780px; width:100%; background:var(--card); border:1px solid var(--border);
+    border-radius:16px; padding:32px; position:relative;
+    transition:border-color .2s;
+  }
+  .type-box.focus{border-color:var(--accent);}
+  .type-text{
+    font-family:var(--mono); font-size:1.25rem; line-height:2; letter-spacing:.3px;
+    color:var(--muted); user-select:none; word-break:break-word;
+  }
+  .type-text .char{position:relative; transition:color .08s;}
+  .type-text .char.correct{color:var(--txt);}
+  .type-text .char.incorrect{color:var(--red); background:rgba(248,113,113,.15); border-radius:2px;}
+  .type-text .char.current{
+    color:var(--accent2); border-bottom:2px solid var(--accent2);
+  }
+  .type-text .char.space-incorrect{background:rgba(248,113,113,.3);}
+  .type-text .cursor{
+    display:inline-block; width:2px; height:1.3em; background:var(--accent);
+    vertical-align:text-bottom; animation:blink 1s infinite; margin-left:-1px;
+  }
+  @keyframes blink{0%,50%{opacity:1}51%,100%{opacity:0}}
+
+  /* Focus hint overlay */
+  .focus-hint{
+    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+    color:var(--muted); font-size:.9rem; pointer-events:none;
+    background:var(--card); padding:10px 20px; border-radius:10px; border:1px solid var(--border);
+    transition:opacity .2s;
+  }
+  .focus-hint.hidden{opacity:0; pointer-events:none;}
+
+  /* ===== Results ===== */
+  .results{max-width:780px; width:100%; margin-top:24px; display:none;}
+  .results.show{display:block; animation:fadeUp .4s;}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+  .result-head{text-align:center; margin-bottom:20px;}
+  .result-wpm{font-size:3.5rem; font-weight:800; font-family:var(--mono); color:var(--accent2); line-height:1;}
+  .result-wpm small{font-size:1rem; color:var(--muted); font-weight:400;}
+  .result-sub{color:var(--muted); font-size:.85rem; margin-top:4px;}
+  .result-grid{
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr));
+    gap:12px; margin-bottom:20px;
+  }
+  .result-card{
+    background:var(--card); border:1px solid var(--border); border-radius:12px;
+    padding:14px; text-align:center;
+  }
+  .result-card .val{font-size:1.5rem; font-weight:700; font-family:var(--mono);}
+  .result-card .lbl{font-size:.72rem; color:var(--muted); text-transform:uppercase; letter-spacing:1px; margin-top:2px;}
+  .result-card.good .val{color:var(--green);}
+  .result-card.warn .val{color:var(--red);}
+
+  /* WPM chart */
+  .chart-wrap{background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px; margin-bottom:16px;}
+  .chart-wrap .ct{font-size:.82rem; color:var(--muted); margin-bottom:8px;}
+  canvas{display:block; width:100%; height:120px;}
+
+  /* Buttons */
+  .btn-row{display:flex; gap:10px; justify-content:center; flex-wrap:wrap;}
+  .btn{
+    padding:10px 24px; border-radius:10px; border:none; cursor:pointer;
+    font-size:.9rem; font-weight:600; transition:all .15s;
+  }
+  .btn-primary{background:var(--accent); color:#fff;}
+  .btn-primary:hover{background:#e55a2b;}
+  .btn-ghost{background:var(--card); color:var(--txt); border:1px solid var(--border);}
+  .btn-ghost:hover{border-color:var(--accent2);}
+
+  /* ===== History & Weak keys (collapsible) ===== */
+  .panels{max-width:780px; width:100%; margin-top:28px;}
+  .panel{
+    background:var(--card); border:1px solid var(--border); border-radius:12px;
+    margin-bottom:12px; overflow:hidden;
+  }
+  .panel-head{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:14px 20px; cursor:pointer; user-select:none;
+  }
+  .panel-head .pt{font-weight:600; font-size:.95rem;}
+  .panel-head .pa{color:var(--muted); font-size:.82rem;}
+  .panel-head .arrow{color:var(--muted); transition:transform .2s;}
+  .panel.open .arrow{transform:rotate(90deg);}
+  .panel-body{max-height:0; overflow:hidden; transition:max-height .3s; padding:0 20px;}
+  .panel.open .panel-body{max-height:800px; padding:0 20px 16px;}
+
+  /* History list */
+  .hist-item{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:8px 0; border-bottom:1px dashed var(--border); font-size:.85rem;
+  }
+  .hist-item:last-child{border-bottom:none;}
+  .hist-wpm{font-family:var(--mono); font-weight:700; color:var(--accent2);}
+  .hist-acc{font-family:var(--mono); color:var(--green);}
+  .hist-meta{color:var(--muted); font-size:.78rem;}
+  .hist-trend{font-size:.9rem; margin-left:6px;}
+  .hist-trend.up{color:var(--green);}
+  .hist-trend.down{color:var(--red);}
+  .hist-trend.flat{color:var(--muted);}
+
+  /* Weak keys heatmap */
+  .heatmap{display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;}
+  .key-tile{
+    font-family:var(--mono); font-size:1.1rem; font-weight:600;
+    width:42px; height:42px; display:flex; align-items:center; justify-content:center;
+    border-radius:8px; border:1px solid var(--border); background:var(--card2);
+    position:relative;
+  }
+  .key-tile .err{
+    position:absolute; bottom:1px; right:3px; font-size:.6rem;
+    color:var(--muted); font-weight:400;
+  }
+  .weak-note{color:var(--muted); font-size:.8rem; margin-top:10px;}
+
+  @media(max-width:600px){
+    .type-text{font-size:1.05rem; line-height:1.9;}
+    .type-box{padding:20px;}
+    .result-wpm{font-size:2.8rem;}
+    .live-stat .num{font-size:1.4rem;}
+  }
+</style>
+</head>
+<body>
+
+<h1>⌨️ Typing <span>Trainer</span></h1>
+<p class="subtitle">Ad-free typing practice for PSII — aim for 50+ WPM</p>
+
+<!-- Setup -->
+<div class="setup">
+  <div class="setup-group">
+    <span class="setup-label">Duration</span>
+    <div class="opt-row" id="durOpts">
+      <span class="opt" data-dur="30">30s</span>
+      <span class="opt active" data-dur="60">1 min</span>
+      <span class="opt" data-dur="120">2 min</span>
+      <span class="opt" data-dur="180">3 min</span>
+    </div>
+  </div>
+  <div class="setup-group">
+    <span class="setup-label">Content</span>
+    <div class="opt-row" id="catOpts">
+      <span class="opt active" data-cat="legal">📜 Legal</span>
+      <span class="opt" data-cat="general">📰 General</span>
+      <span class="opt" data-cat="symbols">🔣 Symbols</span>
+    </div>
+  </div>
+</div>
+
+<!-- Live stats -->
+<div class="live-stats" id="liveStats">
+  <div class="live-stat"><div class="num" id="liveWpm">0</div><div class="lbl">WPM</div></div>
+  <div class="live-stat"><div class="num" id="liveAcc">100%</div><div class="lbl">Accuracy</div></div>
+  <div class="live-stat"><div class="num" id="liveTime">1:00</div><div class="lbl">Time</div></div>
+</div>
+
+<!-- Typing area -->
+<div class="type-box" id="typeBox">
+  <div class="type-text" id="typeText"></div>
+  <input type="text" id="hiddenInput" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+         style="position:absolute;opacity:0;pointer-events:none;left:0;top:0;width:1px;height:1px;">
+  <div class="focus-hint" id="focusHint">Click here or press any key to start ⌨️</div>
+</div>
+
+<!-- Results -->
+<div class="results" id="results">
+  <div class="result-head">
+    <div class="result-wpm" id="finalWpm">0<small> WPM</small></div>
+    <div class="result-sub" id="resultSub"></div>
+  </div>
+  <div class="result-grid">
+    <div class="result-card"><div class="val" id="finalAcc">0%</div><div class="lbl">Accuracy</div></div>
+    <div class="result-card"><div class="val" id="finalRaw">0</div><div class="lbl">Raw WPM</div></div>
+    <div class="result-card warn"><div class="val" id="finalErr">0</div><div class="lbl">Errors</div></div>
+    <div class="result-card"><div class="val" id="finalChars">0</div><div class="lbl">Characters</div></div>
+  </div>
+  <div class="chart-wrap">
+    <div class="ct">WPM over time</div>
+    <canvas id="chart"></canvas>
+  </div>
+  <div class="btn-row">
+    <button class="btn btn-primary" id="retryBtn">↻ Try Again</button>
+    <button class="btn btn-ghost" id="newTextBtn">New Text</button>
+  </div>
+</div>
+
+<!-- History & Weak keys -->
+<div class="panels">
+  <div class="panel" id="histPanel">
+    <div class="panel-head" onclick="togglePanel('histPanel')">
+      <span class="pt">📊 History</span>
+      <span class="arrow">▶</span>
+    </div>
+    <div class="panel-body" id="histBody"></div>
+  </div>
+  <div class="panel" id="weakPanel">
+    <div class="panel-head" onclick="togglePanel('weakPanel')">
+      <span class="pt">🎯 Tricky Keys</span>
+      <span class="arrow">▶</span>
+    </div>
+    <div class="panel-body" id="weakBody"></div>
+  </div>
+</div>
+
+<script src="texts.js"></script>
+<script>
+/* ========== State ========== */
+let duration = 60;          // seconds
+let category = 'legal';
+let fullText = '';          // the passage to type
+let typed = '';             // what user has typed so far
+let startTime = null;
+let endTime = null;
+let timerInterval = null;
+let wpmInterval = null;
+let testActive = false;
+let testFinished = false;
+let wpmHistory = [];        // [{t, wpm}] sampled every second
+let charErrors = {};        // {char: errorCount}
+let charAttempts = {};      // {char: attemptCount}
+
+const typeText = document.getElementById('typeText');
+const typeBox = document.getElementById('typeBox');
+const hiddenInput = document.getElementById('hiddenInput');
+const focusHint = document.getElementById('focusHint');
+const liveStats = document.getElementById('liveStats');
+
+/* ========== Setup handlers ========== */
+document.getElementById('durOpts').addEventListener('click', e => {
+  const o = e.target.closest('.opt'); if(!o) return;
+  document.querySelectorAll('#durOpts .opt').forEach(x=>x.classList.remove('active'));
+  o.classList.add('active');
+  duration = parseInt(o.dataset.dur);
+  resetTest();
+});
+document.getElementById('catOpts').addEventListener('click', e => {
+  const o = e.target.closest('.opt'); if(!o) return;
+  document.querySelectorAll('#catOpts .opt').forEach(x=>x.classList.remove('active'));
+  o.classList.add('active');
+  category = o.dataset.cat;
+  resetTest();
+});
+
+/* ========== Pick a random text ========== */
+function pickText(){
+  const pool = TEXTS[category];
+  let txt = pool[Math.floor(Math.random()*pool.length)];
+  // For longer durations, concatenate 2 passages
+  if(duration >= 120){
+    let t2 = pool[Math.floor(Math.random()*pool.length)];
+    txt += ' ' + t2;
+  }
+  if(duration >= 180){
+    let t3 = pool[Math.floor(Math.random()*pool.length)];
+    txt += ' ' + t3;
+  }
+  return txt;
+}
+
+/* ========== Render text with char spans ========== */
+function renderText(){
+  typeText.innerHTML = '';
+  const frag = document.createDocumentFragment();
+  for(let i=0;i<fullText.length;i++){
+    const span = document.createElement('span');
+    span.className = 'char';
+    span.textContent = fullText[i]===' ' ? '\u00A0' : fullText[i];
+    span.dataset.idx = i;
+    frag.appendChild(span);
+  }
+  typeText.appendChild(frag);
+  updateCharStates();
+}
+
+/* Update colours based on typed string */
+function updateCharStates(){
+  const spans = typeText.children;
+  for(let i=0;i<spans.length;i++){
+    spans[i].className = 'char';
+    if(i < typed.length){
+      if(typed[i] === fullText[i]){
+        spans[i].classList.add('correct');
+      } else {
+        spans[i].classList.add('incorrect');
+        if(fullText[i]===' ') spans[i].classList.add('space-incorrect');
+      }
+    } else if(i === typed.length){
+      spans[i].classList.add('current');
+    }
+  }
+  // Auto-scroll: keep current char visible
+  const cur = spans[typed.length];
+  if(cur) cur.scrollIntoView({block:'nearest', behavior:'smooth'});
+}
+
+/* ========== Start / handle input ========== */
+function startTest(){
+  if(testActive || testFinished) return;
+  testActive = true;
+  startTime = Date.now();
+  endTime = startTime + duration*1000;
+  focusHint.classList.add('hidden');
+  liveStats.classList.add('show');
+  typeBox.classList.add('focus');
+
+  // Timer countdown
+  timerInterval = setInterval(()=>{
+    const remain = Math.max(0, Math.round((endTime - Date.now())/1000));
+    const m = Math.floor(remain/60);
+    const s = remain%60;
+    document.getElementById('liveTime').textContent = m+':'+String(s).padStart(2,'0');
+    if(remain <= 5) document.getElementById('liveTime').classList.add('warn');
+    if(remain <= 0){ finishTest(); }
+  }, 200);
+
+  // WPM sampling every second
+  wpmInterval = setInterval(()=>{
+    const elapsed = (Date.now()-startTime)/1000;
+    if(elapsed < 1) return;
+    const wpm = calcWPM(typed, elapsed);
+    const acc = calcAccuracy();
+    wpmHistory.push({t: Math.round(elapsed), wpm});
+    document.getElementById('liveWpm').textContent = wpm;
+    document.getElementById('liveAcc').textContent = acc+'%';
+  }, 1000);
+}
+
+function handleKey(e){
+  if(testFinished) return;
+
+  // Start on first meaningful key
+  if(!testActive && e.key.length===1){
+    startTest();
+  }
+  if(!testActive) return;
+
+  if(e.key === 'Backspace'){
+    e.preventDefault();
+    if(typed.length>0){
+      typed = typed.slice(0,-1);
+      updateCharStates();
+    }
+    return;
+  }
+  if(e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey){
+    e.preventDefault();
+    const idx = typed.length;
+    if(idx < fullText.length){
+      const expected = fullText[idx];
+      charAttempts[expected] = (charAttempts[expected]||0)+1;
+      if(e.key !== expected){
+        charErrors[expected] = (charErrors[expected]||0)+1;
+      }
+      typed += e.key;
+      updateCharStates();
+      // If finished the whole text early
+      if(typed.length >= fullText.length){ finishTest(); }
+    }
+  }
+}
+
+/* ========== Calculations ========== */
+function calcWPM(str, seconds){
+  const words = str.length / 5;
+  return Math.round(words / (seconds/60));
+}
+function calcAccuracy(){
+  let correct=0;
+  for(let i=0;i<typed.length;i++){
+    if(typed[i]===fullText[i]) correct++;
+  }
+  return typed.length===0 ? 100 : Math.round(correct/typed.length*100);
+}
+function countErrors(){
+  let err=0;
+  for(let i=0;i<typed.length;i++){
+    if(typed[i]!==fullText[i]) err++;
+  }
+  return err;
+}
+
+/* ========== Finish ========== */
+function finishTest(){
+  if(testFinished) return;
+  testFinished = true;
+  testActive = false;
+  clearInterval(timerInterval);
+  clearInterval(wpmInterval);
+  hiddenInput.blur();
+  typeBox.classList.remove('focus');
+
+  const elapsed = Math.min(duration, (Date.now()-startTime)/1000);
+  const finalWpm = calcWPM(typed, elapsed);
+  const acc = calcAccuracy();
+  const rawWpm = Math.round((typed.length/5)/(elapsed/60));
+  const errors = countErrors();
+
+  document.getElementById('finalWpm').innerHTML = finalWpm + '<small> WPM</small>';
+  document.getElementById('finalAcc').textContent = acc+'%';
+  document.getElementById('finalRaw').textContent = rawWpm;
+  document.getElementById('finalErr').textContent = errors;
+  document.getElementById('finalChars').textContent = typed.length;
+
+  // Encouragement message
+  let msg='';
+  if(finalWpm>=50) msg=`🎉 Excellent! You're at PSII level (50+ WPM).`;
+  else if(finalWpm>=40) msg=`💪 Almost there — keep pushing for 50 WPM!`;
+  else if(finalWpm>=30) msg=`📈 Good progress. Aim higher next time.`;
+  else msg=`🌱 Keep practicing — speed comes with consistency.`;
+  document.getElementById('resultSub').textContent = msg;
+
+  // Chart
+  drawChart();
+
+  // Save history
+  saveHistory({wpm:finalWpm, acc, errors, cat:category, dur:duration, date:Date.now()});
+
+  // Update weak keys
+  renderWeakKeys();
+
+  // Show results
+  document.getElementById('results').classList.add('show');
+  document.getElementById('results').scrollIntoView({behavior:'smooth', block:'start'});
+  renderHistory();
+}
+
+/* ========== WPM Chart (Canvas) ========== */
+function drawChart(){
+  const canvas = document.getElementById('chart');
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio||1;
+  const W = canvas.offsetWidth, H = canvas.offsetHeight;
+  canvas.width = W*dpr; canvas.height = H*dpr;
+  ctx.scale(dpr,dpr);
+
+  ctx.clearRect(0,0,W,H);
+  if(wpmHistory.length<2) return;
+
+  const maxWpm = Math.max(...wpmHistory.map(p=>p.wpm), 10);
+  const pad = 24;
+  const cw = W-pad*2, ch = H-pad*2;
+
+  // Grid lines
+  ctx.strokeStyle = '#2e333d'; ctx.lineWidth=1;
+  for(let i=0;i<=4;i++){
+    const y = pad + ch*i/4;
+    ctx.beginPath(); ctx.moveTo(pad,y); ctx.lineTo(W-pad,y); ctx.stroke();
+  }
+
+  // Line
+  ctx.strokeStyle='#ff6b35'; ctx.lineWidth=2;
+  ctx.beginPath();
+  wpmHistory.forEach((p,i)=>{
+    const x = pad + cw*(i/(wpmHistory.length-1));
+    const y = pad + ch*(1 - p.wpm/maxWpm);
+    if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+  });
+  ctx.stroke();
+
+  // Fill under line
+  ctx.lineTo(pad+cw, pad+ch); ctx.lineTo(pad, pad+ch); ctx.closePath();
+  ctx.fillStyle='rgba(255,107,53,.12)'; ctx.fill();
+
+  // Axis labels
+  ctx.fillStyle='#9aa0a6'; ctx.font='10px sans-serif';
+  ctx.fillText('0s', pad, H-6);
+  ctx.fillText(wpmHistory[wpmHistory.length-1].t+'s', W-pad-20, H-6);
+  ctx.fillText(maxWpm, 2, pad+8);
+}
+
+/* ========== History (localStorage) ========== */
+const HIST_KEY = 'typing_trainer_history';
+function getHistory(){
+  try{ return JSON.parse(localStorage.getItem(HIST_KEY))||[]; }catch{ return []; }
+}
+function saveHistory(rec){
+  const hist = getHistory();
+  hist.push(rec);
+  if(hist.length>50) hist.shift();
+  localStorage.setItem(HIST_KEY, JSON.stringify(hist));
+}
+function renderHistory(){
+  const hist = getHistory().slice(-10).reverse();
+  const body = document.getElementById('histBody');
+  if(hist.length===0){ body.innerHTML='<p style="color:var(--muted);font-size:.85rem;padding:8px 0">No history yet. Complete a test to start tracking!</p>'; return; }
+  body.innerHTML = hist.map((r,i)=>{
+    const prev = hist[i+1];
+    let trend = '';
+    if(prev){
+      const diff = r.wpm - prev.wpm;
+      if(diff>1) trend = `<span class="hist-trend up">↑${diff}</span>`;
+      else if(diff<-1) trend = `<span class="hist-trend down">↓${Math.abs(diff)}</span>`;
+      else trend = `<span class="hist-trend flat">→</span>`;
+    }
+    const catIcon = {legal:'📜',general:'📰',symbols:'🔣'}[r.cat]||'';
+    const d = new Date(r.date);
+    const ds = d.toLocaleDateString('en-GB',{month:'short',day:'numeric'})+' '+d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+    return `<div class="hist-item">
+      <div><span class="hist-wpm">${r.wpm} WPM</span> <span class="hist-acc">${r.acc}%</span> ${trend}</div>
+      <div class="hist-meta">${catIcon} ${r.dur}s · ${ds}</div>
+    </div>`;
+  }).join('');
+}
+
+/* ========== Weak Keys ========== */
+function renderWeakKeys(){
+  const body = document.getElementById('weakBody');
+  const entries = Object.keys(charAttempts)
+    .map(ch => ({ch, err:charErrors[ch]||0, att:charAttempts[ch], rate:((charErrors[ch]||0)/charAttempts[ch])}))
+    .filter(e=>e.att>=2 && e.ch.trim()!=='')  // at least 2 attempts, skip space
+    .sort((a,b)=>b.rate-a.rate)
+    .slice(0,24);
+
+  if(entries.length===0){
+    body.innerHTML='<p class="weak-note">Complete a test to see which keys trip you up.</p>';
+    return;
+  }
+  body.innerHTML = '<div class="heatmap">' + entries.map(e=>{
+    // colour: 0% green-ish → high% red
+    const rate = e.rate;
+    let bg;
+    if(rate<0.05) bg='rgba(52,211,153,.15)';
+    else if(rate<0.15) bg='rgba(255,179,71,.25)';
+    else if(rate<0.3) bg='rgba(255,107,53,.3)';
+    else bg='rgba(248,113,113,.35)';
+    const display = e.ch===' ' ? '␣' : e.ch;
+    return `<div class="key-tile" style="background:${bg}" title="${e.ch}: ${e.err}/${e.att} errors (${Math.round(rate*100)}%)">${display}<span class="err">${e.err}</span></div>`;
+  }).join('') + '</div>'
+  + '<p class="weak-note">Redder tiles = higher error rate. Numbers show total errors. Practice these keys!</p>';
+}
+
+/* ========== Panel toggle ========== */
+function togglePanel(id){
+  document.getElementById(id).classList.toggle('open');
+}
+
+/* ========== Reset / new test ========== */
+function resetTest(){
+  testActive=false; testFinished=false;
+  typed=''; startTime=null; endTime=null;
+  wpmHistory=[]; charErrors={}; charAttempts={};
+  clearInterval(timerInterval); clearInterval(wpmInterval);
+  document.getElementById('liveTime').classList.remove('warn');
+  document.getElementById('liveWpm').textContent='0';
+  document.getElementById('liveAcc').textContent='100%';
+  const m=Math.floor(duration/60), s=duration%60;
+  document.getElementById('liveTime').textContent=m+':'+String(s).padStart(2,'0');
+  liveStats.classList.remove('show');
+  focusHint.classList.remove('hidden');
+  document.getElementById('results').classList.remove('show');
+  fullText = pickText();
+  renderText();
+  hiddenInput.value='';
+}
+
+/* ========== Button handlers ========== */
+document.getElementById('retryBtn').addEventListener('click', ()=>{ resetTest(); hiddenInput.focus(); });
+document.getElementById('newTextBtn').addEventListener('click', ()=>{ resetTest(); hiddenInput.focus(); });
+
+/* Focus management: clicking the box focuses the hidden input */
+typeBox.addEventListener('click', ()=>{ hiddenInput.focus(); });
+hiddenInput.addEventListener('focus', ()=>{ typeBox.classList.add('focus'); focusHint.classList.add('hidden'); });
+hiddenInput.addEventListener('blur', ()=>{ if(!testFinished) typeBox.classList.remove('focus'); });
+
+/* Listen for keystrokes globally (so user doesn't need to click first) */
+document.addEventListener('keydown', e=>{
+  // Ignore if user is typing in another input (none here, but safe)
+  if(e.target !== hiddenInput && e.target !== document.body && e.target.tagName!=='BODY') return;
+  // Don't intercept browser shortcuts
+  if(e.ctrlKey||e.metaKey||e.altKey) return;
+  if(testFinished) return;
+  if(e.key==='Tab') return; // let tab work normally
+  handleKey(e);
+});
+
+/* ========== Init ========== */
+resetTest();
+renderHistory();
+renderWeakKeys();
+</script>
+</body>
+</html>
