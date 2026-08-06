@@ -53,8 +53,9 @@
   .blind-toggle.on .blind-switch{background:var(--accent);}
   .blind-toggle.on .blind-switch::after{left:20px; background:#fff;}
   .blind-toggle.on{color:var(--accent2);}
-  .type-text.blind .char{color:var(--muted)!important; background:none!important;}
-  .type-text.blind .char.current{color:var(--accent2)!important;}
+  .type-line.typed.blind .char{color:transparent!important; background:none!important;}
+  .type-line.typed.blind .char.current{color:transparent!important; background:none!important;}
+  .type-line.typed.blind{color:transparent;}
 
   /* ===== Stats bar (during test) ===== */
   .live-stats{
@@ -74,20 +75,26 @@
     transition:border-color .2s;
   }
   .type-box.focus{border-color:var(--accent);}
-  .type-text{
-    font-family:var(--mono); font-size:1.25rem; line-height:2; letter-spacing:.3px;
-    color:var(--muted); user-select:none; word-break:break-word;
-    max-height:6em; overflow:hidden; transition:max-height .2s;
+  .type-area{
+    position:relative; max-height:4.6em; overflow:hidden;
   }
-  .type-text .char{position:relative; transition:color .08s;}
-  .type-text .char.correct{color:var(--txt);}
-  .type-text .char.incorrect{color:var(--red); background:rgba(248,113,113,.15); border-radius:2px;}
-  .type-text .char.current{
+  .type-line{
+    font-family:var(--mono); font-size:1.25rem; line-height:2.3; letter-spacing:.3px;
+    color:var(--muted); user-select:none; word-break:break-all; white-space:pre-wrap;
+    min-height:1.5em;
+  }
+  .type-line.target{color:var(--muted);}
+  .type-line.typed{color:var(--txt);}
+  .type-line .char{transition:color .08s;}
+  .type-line .char.correct{color:var(--green);}
+  .type-line .char.incorrect{color:var(--red); background:rgba(248,113,113,.15); border-radius:2px;}
+  .type-line .char.space-incorrect{background:rgba(248,113,113,.3);}
+  .type-line .char.current{
     color:var(--accent2); border-bottom:2px solid var(--accent2);
   }
-  .type-text .char.space-incorrect{background:rgba(248,113,113,.3);}
-  .type-text .cursor{
-    display:inline-block; width:2px; height:1.3em; background:var(--accent);
+  .type-line .char.pending{color:transparent;}  /* shadow line: untyped chars invisible */
+  .type-cursor{
+    display:inline-block; width:2px; height:1.2em; background:var(--accent);
     vertical-align:text-bottom; animation:blink 1s infinite; margin-left:-1px;
   }
   @keyframes blink{0%,50%{opacity:1}51%,100%{opacity:0}}
@@ -184,7 +191,8 @@
   .weak-note{color:var(--muted); font-size:.8rem; margin-top:10px;}
 
   @media(max-width:600px){
-    .type-text{font-size:1.05rem; line-height:1.9; max-height:5.7em;} /* 3 lines × 1.9 */
+    .type-line{font-size:1.05rem; line-height:2.1;}
+    .type-area{max-height:5em;}
     .type-box{padding:20px;}
     .result-wpm{font-size:2.8rem;}
     .live-stat .num{font-size:1.4rem;}
@@ -233,7 +241,10 @@
 
 <!-- Typing area -->
 <div class="type-box" id="typeBox">
-  <div class="type-text" id="typeText"></div>
+  <div class="type-area">
+    <div class="type-line target" id="targetLine"></div>
+    <div class="type-line typed" id="typedLine"></div>
+  </div>
   <input type="text" id="hiddenInput" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
          style="position:absolute;opacity:0;pointer-events:none;left:0;top:0;width:1px;height:1px;">
   <div class="focus-hint" id="focusHint">Click here or press any key to start ⌨️</div>
@@ -297,11 +308,16 @@ let wpmHistory = [];        // [{t, wpm}] sampled every second
 let charErrors = {};        // {char: errorCount}
 let charAttempts = {};      // {char: attemptCount}
 
-const typeText = document.getElementById('typeText');
+const targetLine = document.getElementById('targetLine');
+const typedLine = document.getElementById('typedLine');
+const typeArea = document.querySelector('.type-area');
 const typeBox = document.getElementById('typeBox');
 const hiddenInput = document.getElementById('hiddenInput');
 const focusHint = document.getElementById('focusHint');
 const liveStats = document.getElementById('liveStats');
+// Create blinking cursor element (reused in shadow line)
+const cursorEl = document.createElement('span');
+cursorEl.className = 'type-cursor';
 
 /* ========== Setup handlers ========== */
 document.getElementById('durOpts').addEventListener('click', e => {
@@ -323,7 +339,7 @@ document.getElementById('catOpts').addEventListener('click', e => {
 document.getElementById('blindToggle').addEventListener('click', function(){
   blindMode = !blindMode;
   this.classList.toggle('on', blindMode);
-  document.getElementById('typeText').classList.toggle('blind', blindMode);
+  typedLine.classList.toggle('blind', blindMode);
 });
 
 /* ========== Pick a random text ========== */
@@ -342,45 +358,71 @@ function pickText(){
   return txt;
 }
 
-/* ========== Render text with char spans ========== */
+/* ========== Render text with char spans (dual-line shadow) ========== */
 function renderText(){
-  typeText.innerHTML = '';
-  const frag = document.createDocumentFragment();
+  // Target line (top): full original text, chars colour by progress
+  targetLine.innerHTML = '';
+  typedLine.innerHTML = '';
+  const tFrag = document.createDocumentFragment();
+  const yFrag = document.createDocumentFragment();
   for(let i=0;i<fullText.length;i++){
-    const span = document.createElement('span');
-    span.className = 'char';
-    span.textContent = fullText[i]===' ' ? '\u00A0' : fullText[i];
-    span.dataset.idx = i;
-    frag.appendChild(span);
+    // Target line char
+    const tSpan = document.createElement('span');
+    tSpan.className = 'char';
+    tSpan.textContent = fullText[i]===' ' ? '\u00A0' : fullText[i];
+    tFrag.appendChild(tSpan);
+    // Shadow line char placeholder (will be filled by updateCharStates)
+    const ySpan = document.createElement('span');
+    ySpan.className = 'char pending';
+    ySpan.textContent = '\u00A0';  // placeholder, same width
+    yFrag.appendChild(ySpan);
   }
-  typeText.appendChild(frag);
+  targetLine.appendChild(tFrag);
+  typedLine.appendChild(yFrag);
   updateCharStates();
 }
 
 /* Update colours based on typed string */
 function updateCharStates(){
-  const spans = typeText.children;
-  for(let i=0;i<spans.length;i++){
-    spans[i].className = 'char';
+  const target = targetLine.children;
+  const shadow = typedLine.children;
+  for(let i=0;i<target.length;i++){
+    // Reset classes
+    target[i].className = 'char';
+    shadow[i].className = 'char pending';
+
     if(i < typed.length){
+      // Already typed
+      shadow[i].classList.remove('pending');
+      shadow[i].textContent = typed[i]===' ' ? '\u00A0' : typed[i];
       if(typed[i] === fullText[i]){
-        spans[i].classList.add('correct');
+        shadow[i].classList.add('correct');
+        target[i].style.color = '';  // default muted
       } else {
-        spans[i].classList.add('incorrect');
-        if(fullText[i]===' ') spans[i].classList.add('space-incorrect');
+        shadow[i].classList.add('incorrect');
+        if(fullText[i]===' ') shadow[i].classList.add('space-incorrect');
+        target[i].style.color = 'var(--red)';  // mark the wrong target char
       }
     } else if(i === typed.length){
-      spans[i].classList.add('current');
+      // Current position: highlight in both lines
+      target[i].classList.add('current');
+      shadow[i].classList.remove('pending');
+      shadow[i].textContent = '\u00A0';
+      shadow[i].appendChild(cursorEl);
     }
   }
-  // Auto-scroll: keep current char visible within the 3-line window
-  const cur = spans[typed.length];
+  // Auto-scroll: keep current position visible
+  syncScroll();
+}
+
+/* Keep both lines scrolled to show the current character */
+function syncScroll(){
+  const cur = targetLine.children[typed.length];
   if(cur){
-    // Scroll the type-text container so current char stays in middle line
-    const container = typeText;
-    const charTop = cur.offsetTop;
-    const lineHeight = parseFloat(getComputedStyle(container).lineHeight);
-    container.scrollTop = Math.max(0, charTop - lineHeight);
+    const lineHeight = parseFloat(getComputedStyle(targetLine).lineHeight);
+    // Scroll target line so current char is on the first visible line
+    targetLine.scrollTop = Math.max(0, cur.offsetTop - lineHeight*0.3);
+    typedLine.scrollTop = targetLine.scrollTop;
   }
 }
 
