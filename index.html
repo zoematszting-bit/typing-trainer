@@ -82,10 +82,16 @@
     font-family:var(--mono); font-size:1.25rem; line-height:2.3; letter-spacing:.3px;
     color:var(--muted); user-select:none; word-break:break-all; white-space:pre-wrap;
     min-height:1.5em;
+    transition:transform .25s ease;
   }
   .type-line.target{color:var(--muted);}
   .type-line.typed{color:var(--txt);}
   .type-line .char{transition:color .08s;}
+  /* 下行：填空式橫線，打嘅字浮現喺橫線上面 */
+  .type-line.typed .char{border-bottom:2px solid var(--border);}
+  .type-line.typed .char.has-cursor{border-bottom-color:var(--accent);}
+  .type-line.typed .char.incorrect{border-bottom-color:rgba(248,113,113,.55);}
+  .type-line.typed .char.space-incorrect{border-bottom-color:rgba(248,113,113,.55);}
   .type-line .char.correct{color:var(--green);}
   .type-line .char.incorrect{color:var(--red); background:rgba(248,113,113,.15); border-radius:2px;}
   .type-line .char.space-incorrect{background:rgba(248,113,113,.3);}
@@ -415,15 +421,17 @@ function updateCharStates(){
   syncScroll();
 }
 
-/* Keep both lines scrolled to show the current character */
+/* Auto-follow: 用 translateY 令正在打嗰行永遠停喺顯示區第 2 行位置 */
 function syncScroll(){
   const cur = targetLine.children[typed.length];
-  if(cur){
-    const lineHeight = parseFloat(getComputedStyle(targetLine).lineHeight);
-    // Scroll target line so current char is on the first visible line
-    targetLine.scrollTop = Math.max(0, cur.offsetTop - lineHeight*0.3);
-    typedLine.scrollTop = targetLine.scrollTop;
-  }
+  if(!cur) return;
+  const lineHeight = parseFloat(getComputedStyle(targetLine).lineHeight) || 30;
+  // 當前字符喺第幾行（offsetTop 相對 .type-area，transform 唔會影響佢）
+  const row = Math.round(cur.offsetTop / lineHeight);
+  // 第 0、1 行唔使移；第 2 行開始上移，保持當前行喺第 2 行（index 1）
+  const ty = -Math.max(0, row - 1) * lineHeight;
+  targetLine.style.transform = 'translateY(' + ty + 'px)';
+  typedLine.style.transform = 'translateY(' + ty + 'px)';
 }
 
 /* ========== Start / handle input ========== */
