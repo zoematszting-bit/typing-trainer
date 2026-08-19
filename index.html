@@ -82,7 +82,6 @@
     font-family:var(--mono); font-size:1.25rem; line-height:2.3; letter-spacing:.3px;
     color:var(--muted); user-select:none; word-break:break-all; white-space:pre-wrap;
     min-height:1.5em;
-    transition:transform .25s ease;
   }
   .type-line.target{color:var(--muted);}
   .type-line.typed{color:var(--txt);}
@@ -311,6 +310,8 @@ let testFinished = false;
 let wpmHistory = [];        // [{t, wpm}] sampled every second
 let charErrors = {};        // {char: errorCount}
 let charAttempts = {};      // {char: attemptCount}
+let lines = [];             // [{start, end, text}] word-wrapped lines
+let curLine = 0;            // line the cursor is currently on
 
 const targetLine = document.getElementById('targetLine');
 const typedLine = document.getElementById('typedLine');
@@ -359,74 +360,114 @@ function pickText(){
   return txt;
 }
 
-/* ========== Render text with char spans (dual-line shadow) ========== */
+/* ========== Line-by-line dual-line rendering ========== */
+/* 模式：全文斬做一行行（word wrap），眼前永遠淨係顯示打緊嗰一行——
+   上行原文、下行打字。打完一行自動跳下一行，唔使任何捲動。 */
+
+function measureCharWidth(){
+  const span = document.createElement('span');
+  span.className = 'char';
+  span.textContent = 'MMMMMMMMMM';
+  targetLine.appendChild(span);
+  const w = span.getBoundingClientRect().width / 10;
+  targetLine.innerHTML = '';
+  return w;
+}
+
+function isLineBoundary(i){
+  // 「跨行空格」＝被斬行 skip 咗、唔會顯示出嚟嘅空格
+  if(i >= fullText.length || fullText[i] !== ' ') return false;
+  return !lines.some(L => i >= L.start && i < L.end);
+}
+
 function renderText(){
-  // Target line (top): full original text, chars colour by progress
+  const cw = measureCharWidth();
+  const raw = Math.floor(typeArea.clientWidth / cw) - 1;
+  const maxChars = (isFinite(raw) && raw >= 20) ? raw : 40;  // 防禦：量度失敗用 40
+  lines = [];
+  let pos = 0;
+  while(pos < fullText.length){
+    let end = Math.min(pos + maxChars, fullText.length);
+    if(end < fullText.length){
+      // 喺行尾範圍搵最後一個空格斬（唔斬開字詞）；搵唔到就硬斬
+      const lastSpace = fullText.lastIndexOf(' ', end);
+      if(lastSpace > pos){
+        end = lastSpace;
+      }
+    }
+    lines.push({start: pos, end: end, text: fullText.slice(pos, end)});
+    pos = end;
+    // 行與行之間嘅空格（可能多過一個）全部跳過
+    while(pos < fullText.length && fullText[pos] === ' '){ pos++; }
+  }
+  curLine = 0;
+  renderCurrentLine();
+}
+
+function renderCurrentLine(){
+  const L = lines[curLine];
   targetLine.innerHTML = '';
   typedLine.innerHTML = '';
   const tFrag = document.createDocumentFragment();
   const yFrag = document.createDocumentFragment();
-  for(let i=0;i<fullText.length;i++){
-    // Target line char
+  for(let i=0;i<L.text.length;i++){
     const tSpan = document.createElement('span');
     tSpan.className = 'char';
-    tSpan.textContent = fullText[i]===' ' ? '\u00A0' : fullText[i];
+    tSpan.textContent = L.text[i]===' ' ? '\u00A0' : L.text[i];
     tFrag.appendChild(tSpan);
-    // Shadow line char placeholder (will be filled by updateCharStates)
     const ySpan = document.createElement('span');
     ySpan.className = 'char pending';
-    ySpan.textContent = '\u00A0';  // placeholder, same width
+    ySpan.textContent = '\u00A0';
     yFrag.appendChild(ySpan);
   }
   targetLine.appendChild(tFrag);
   typedLine.appendChild(yFrag);
-  updateCharStates();
 }
 
-/* Update colours based on typed string */
+/* Update colours based on typed string（只顯示當前行） */
 function updateCharStates(){
+  // 自動吞跨行空格：打完一行最後一個字符，即刻跳落下一行
+  while(isLineBoundary(typed.length)){
+    typed += ' ';
+  }
+  // 搵遊cursor而家喺邊一行
+  const gi = typed.length;
+  let li = lines.length - 1;
+  for(let i=0;i<lines.length;i++){
+    if(gi < lines[i].end || (gi === lines[i].end && i === lines.length-1)){
+      li = i; break;
+    }
+  }
+  if(li !== curLine){
+    curLine = li;
+    renderCurrentLine();
+  }
+  const L = lines[curLine];
   const target = targetLine.children;
   const shadow = typedLine.children;
   for(let i=0;i<target.length;i++){
-    // Reset classes
+    const g = L.start + i;  // 呢個字符喺全文嘅 index
     target[i].className = 'char';
     shadow[i].className = 'char pending';
 
-    if(i < typed.length){
-      // Already typed
+    if(g < typed.length){
       shadow[i].classList.remove('pending');
-      shadow[i].textContent = typed[i]===' ' ? '\u00A0' : typed[i];
-      if(typed[i] === fullText[i]){
+      shadow[i].textContent = typed[g]===' ' ? '\u00A0' : typed[g];
+      if(typed[g] === fullText[g]){
         shadow[i].classList.add('correct');
-        target[i].style.color = '';  // default muted
+        target[i].style.color = '';
       } else {
         shadow[i].classList.add('incorrect');
-        if(fullText[i]===' ') shadow[i].classList.add('space-incorrect');
-        target[i].style.color = 'var(--red)';  // mark the wrong target char
+        if(fullText[g]===' ') shadow[i].classList.add('space-incorrect');
+        target[i].style.color = 'var(--red)';
       }
-    } else if(i === typed.length){
-      // Current position: highlight in both lines
+    } else if(g === typed.length){
       target[i].classList.add('current');
       shadow[i].classList.remove('pending');
       shadow[i].textContent = '\u00A0';
-      shadow[i].classList.add('has-cursor');  // blinking cursor via ::before
+      shadow[i].classList.add('has-cursor');
     }
   }
-  // Auto-scroll: keep current position visible
-  syncScroll();
-}
-
-/* Auto-follow: 用 translateY 令正在打嗰行永遠停喺顯示區第 2 行位置 */
-function syncScroll(){
-  const cur = targetLine.children[typed.length];
-  if(!cur) return;
-  const lineHeight = parseFloat(getComputedStyle(targetLine).lineHeight) || 30;
-  // 當前字符喺第幾行（offsetTop 相對 .type-area，transform 唔會影響佢）
-  const row = Math.round(cur.offsetTop / lineHeight);
-  // 第 0、1 行唔使移；第 2 行開始上移，保持當前行喺第 2 行（index 1）
-  const ty = -Math.max(0, row - 1) * lineHeight;
-  targetLine.style.transform = 'translateY(' + ty + 'px)';
-  typedLine.style.transform = 'translateY(' + ty + 'px)';
 }
 
 /* ========== Start / handle input ========== */
@@ -474,6 +515,10 @@ function handleKey(e){
     e.preventDefault();
     if(typed.length>0){
       typed = typed.slice(0,-1);
+      // 跨行空格係自動吞嘅，backspace 要一次過跳過佢哋
+      while(typed.length>0 && isLineBoundary(typed.length)){
+        typed = typed.slice(0,-1);
+      }
       updateCharStates();
     }
     return;
@@ -719,6 +764,20 @@ document.addEventListener('keydown', e=>{
   if(testFinished) return;
   if(e.key==='Tab') return; // let tab work normally
   handleKey(e);
+});
+
+/* Re-split lines on window resize（保留打字進度） */
+let resizeTimer = null;
+window.addEventListener('resize', ()=>{
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(()=>{
+    if(fullText && lines.length){
+      const keepTyped = typed;
+      renderText();          // 重新按新寬度斬行（curLine 會重設）
+      typed = keepTyped;
+      updateCharStates();    // 用返實際進度跳返去正確嘅行
+    }
+  }, 250);
 });
 
 /* ========== Init ========== */
