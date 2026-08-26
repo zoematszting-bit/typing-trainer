@@ -502,41 +502,48 @@ function startTest(){
   }, 1000);
 }
 
+/* ========== 輸入核心（typeChar / doBackspace）========== */
+function typeChar(ch){
+  if(testFinished) return;
+  if(!testActive) startTest();
+  if(!testActive) return;
+  const idx = typed.length;
+  if(idx < fullText.length){
+    const expected = fullText[idx];
+    charAttempts[expected] = (charAttempts[expected]||0)+1;
+    if(ch !== expected){
+      charErrors[expected] = (charErrors[expected]||0)+1;
+    }
+    typed += ch;
+    updateCharStates();
+    if(typed.length >= fullText.length){ finishTest(); }
+  }
+}
+
+function doBackspace(){
+  if(testFinished) return;
+  if(typed.length>0){
+    typed = typed.slice(0,-1);
+    // 跨行空格係自動吞嘅，backspace 要一次過跳過佢哋
+    while(typed.length>0 && isLineBoundary(typed.length)){
+      typed = typed.slice(0,-1);
+    }
+    updateCharStates();
+  }
+}
+
 function handleKey(e){
   if(testFinished) return;
-
-  // Start on first meaningful key
-  if(!testActive && e.key.length===1){
-    startTest();
-  }
-  if(!testActive) return;
+  if(e.ctrlKey||e.metaKey||e.altKey) return;
 
   if(e.key === 'Backspace'){
     e.preventDefault();
-    if(typed.length>0){
-      typed = typed.slice(0,-1);
-      // 跨行空格係自動吞嘅，backspace 要一次過跳過佢哋
-      while(typed.length>0 && isLineBoundary(typed.length)){
-        typed = typed.slice(0,-1);
-      }
-      updateCharStates();
-    }
+    doBackspace();
     return;
   }
-  if(e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey){
+  if(e.key.length === 1){
     e.preventDefault();
-    const idx = typed.length;
-    if(idx < fullText.length){
-      const expected = fullText[idx];
-      charAttempts[expected] = (charAttempts[expected]||0)+1;
-      if(e.key !== expected){
-        charErrors[expected] = (charErrors[expected]||0)+1;
-      }
-      typed += e.key;
-      updateCharStates();
-      // If finished the whole text early
-      if(typed.length >= fullText.length){ finishTest(); }
-    }
+    typeChar(e.key);
   }
 }
 
@@ -755,14 +762,42 @@ typeBox.addEventListener('click', ()=>{ hiddenInput.focus(); });
 hiddenInput.addEventListener('focus', ()=>{ typeBox.classList.add('focus'); focusHint.classList.add('hidden'); });
 hiddenInput.addEventListener('blur', ()=>{ if(!testFinished) typeBox.classList.remove('focus'); });
 
-/* Listen for keystrokes globally (so user doesn't need to click first) */
+/* ========== 輸入監聽（雙軌）========== */
+
+/* 路徑一（手機主路徑）：hiddenInput 嘅字符輸入用 input 事件處理，
+   完全唔信 keydown 嘅字符——避開 iOS 鍵盤 autocorrect / double-space
+   自動替換等系統干預（佢哋會 dispatch 額外嘅 Backspace/字符事件）。
+   空格強制走 keydown 直接處理，唔入 input value，
+   iOS 偵測唔到兩連空格就永遠觸發唔到替換。 */
+hiddenInput.addEventListener('keydown', e=>{
+  if(testFinished) return;
+  if(e.key === 'Backspace'){
+    e.preventDefault();
+    doBackspace();
+  } else if(e.key === ' '){
+    e.preventDefault();   // 防頁面捲動 + 空格唔入 value（斷 iOS 替換觸發條件）
+    typeChar(' ');
+  }
+  // 其他字符：放行入 input value → 由 input 事件處理
+});
+hiddenInput.addEventListener('input', () => {
+  const v = hiddenInput.value;
+  if(v){
+    for(const ch of v){
+      if(ch !== ' '){ typeChar(ch); }   // 空格已由 keydown 處理
+    }
+    hiddenInput.value = '';              // 每次清空，input 只反映「呢一下」嘅輸入
+  }
+});
+
+/* 路徑二（桌面 backup）：焦點喺 body 嗰陣直接打字（唔使 click） */
 document.addEventListener('keydown', e=>{
-  // Ignore if user is typing in another input (none here, but safe)
-  if(e.target !== hiddenInput && e.target !== document.body && e.target.tagName!=='BODY') return;
-  // Don't intercept browser shortcuts
+  // hiddenInput 自己嘅事件由路徑一處理，唔好重複
+  if(e.target === hiddenInput) return;
+  if(e.target !== document.body && e.target.tagName!=='BODY') return;
   if(e.ctrlKey||e.metaKey||e.altKey) return;
   if(testFinished) return;
-  if(e.key==='Tab') return; // let tab work normally
+  if(e.key==='Tab') return;
   handleKey(e);
 });
 
