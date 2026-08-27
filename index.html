@@ -217,11 +217,13 @@
       <span class="opt active" data-dur="60">1 min</span>
       <span class="opt" data-dur="120">2 min</span>
       <span class="opt" data-dur="180">3 min</span>
+      <span class="opt" data-dur="300">5 min 🎯</span>
     </div>
   </div>
   <div class="setup-group">
     <span class="setup-label">Content</span>
     <div class="opt-row" id="catOpts">
+      <span class="opt" data-cat="government">🏛️ Gov Docs</span>
       <span class="opt active" data-cat="legal">📜 Legal</span>
       <span class="opt" data-cat="general">📰 General</span>
       <span class="opt" data-cat="symbols">🔣 Symbols</span>
@@ -235,10 +237,16 @@
   <span>👁️ Blind Mode <small style="color:var(--muted)">(hide errors while typing)</small></span>
 </div>
 
+<!-- Exam mode toggle -->
+<div class="blind-toggle" id="examToggle">
+  <div class="blind-switch"></div>
+  <span>🎯 Exam Mode <small style="color:var(--muted)">(hide live WPM/accuracy)</small></span>
+</div>
+
 <!-- Live stats -->
 <div class="live-stats" id="liveStats">
-  <div class="live-stat"><div class="num" id="liveWpm">0</div><div class="lbl">WPM</div></div>
-  <div class="live-stat"><div class="num" id="liveAcc">100%</div><div class="lbl">Accuracy</div></div>
+  <div class="live-stat" id="statWpm"><div class="num" id="liveWpm">0</div><div class="lbl">WPM</div></div>
+  <div class="live-stat" id="statAcc"><div class="num" id="liveAcc">100%</div><div class="lbl">Accuracy</div></div>
   <div class="live-stat"><div class="num" id="liveTime">1:00</div><div class="lbl">Time</div></div>
 </div>
 
@@ -342,6 +350,15 @@ document.getElementById('blindToggle').addEventListener('click', function(){
   blindMode = !blindMode;
   this.classList.toggle('on', blindMode);
   typedLine.classList.toggle('blind', blindMode);
+});
+
+/* Exam mode toggle：隱藏即時 WPM/準確率，模擬實考冇提示 */
+let examMode = false;
+document.getElementById('examToggle').addEventListener('click', function(){
+  examMode = !examMode;
+  this.classList.toggle('on', examMode);
+  document.getElementById('statWpm').style.visibility = examMode ? 'hidden' : 'visible';
+  document.getElementById('statAcc').style.visibility = examMode ? 'hidden' : 'visible';
 });
 
 /* ========== Pick a random text ========== */

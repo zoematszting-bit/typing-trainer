@@ -1,11 +1,37 @@
 /* ============================================================
    Typing Practice Texts — for PSII (Personal Secretary II)
    ------------------------------------------------------------
-   3 categories, 10+ passages each
+   4 categories, 10+ passages each
    All text is original/paraphrased to avoid copyright issues
+
+   government 類別：擬真政府公文（PSII 打字考試最貼題素材）
+   格式跟足考試規則：句號／問號／感嘆號後兩個空格，
+   其他標點後一個空格（CAACO Typing 公布嘅考試排版硬規則）
    ============================================================ */
 
 const TEXTS = {
+  government: [
+    "It is hereby notified for general information that the final register of electors for the year 2024 will be available for inspection at the office of the Electoral Registration Commission on the tenth floor of the Harbour Centre, twenty-five Harbour Road, Wan Chai, Hong Kong.  The register may be inspected during normal office hours from Monday to Friday, excluding public holidays.  Any person who discovers any inaccuracy in the register may lodge an objection in writing within fourteen days of the date of this notice.",
+
+    "MEMORANDUM.  To all heads of departments.  From the Secretary for Administrative Services.  This memorandum serves to remind all colleagues of the revised procedures for the procurement of office supplies with effect from the first of next month.  All purchase requisitions must be submitted through the electronic procurement system not less than ten working days in advance.  Requisitions submitted after this period may be subject to delays in processing.  Heads of departments are requested to bring this memorandum to the attention of all staff under their supervision.",
+
+    "A spokesman for the Transport Department announced today that temporary road closures will be implemented in the vicinity of the Convention Centre between the hours of eight in the morning and six in the evening on Sunday.  Motorists are advised to plan their routes in advance and to exercise patience when approaching the affected areas.  Public transport operators will arrange diversions where necessary.  Appropriate traffic signs will be provided on site to guide drivers.  For further information, members of the public may call the department hotline during normal office hours.",
+
+    "The Civil Service Bureau invites applications for the post of Personal Secretary II.  Applicants should have Level 2 or above in five subjects in the Hong Kong Diploma of Secondary Education Examination, including Chinese Language and English Language.  Successful candidates will be required to pass a typing test with a speed of forty words per minute in English and twenty words per minute in Chinese.  The starting salary is at point four of the master pay scale.  Application forms may be obtained from any district office or downloaded from the bureau website.",
+
+    "The minutes of the fourth quarterly meeting of the staff consultative committee were confirmed without amendment.  The chairman reported that the renovation works on the third floor would commence in the coming month and were expected to be completed within eight weeks.  Members discussed the arrangements for the relocation of temporary workstations.  It was agreed that each division would submit a list of equipment requirements to the administration section by the end of next week.  The date of the next meeting would be notified in due course.",
+
+    "This circular supersedes all previous circulars on the subject of leave applications.  With effect from the beginning of next year, all applications for annual leave should be submitted through the human resources portal not less than seven calendar days in advance.  Applications involving leave of more than ten consecutive days require the prior approval of the director.  Officers are reminded that untaken annual leave may be forfeited at the end of the leave year unless prior approval for carry-forward has been obtained.",
+
+    "Tenders are invited for the supply and delivery of office furniture to various government offices for a period of twenty-four months.  Tender documents may be obtained from the procurement unit on the fifth floor of the North Point Government Offices during office hours.  Completed tenders must be placed in the tender box located at the reception counter before noon on the closing date.  Late tenders will not be accepted.  The government does not bind itself to accept the lowest tender or any tender, and reserves the right to negotiate with any tenderer about the terms of the offer.",
+
+    "The Working Group on Heritage Conservation today launched a three-month public consultation on proposed measures to protect historic buildings in the urban area.  The consultation document sets out a range of options, including financial incentives for owners and enhanced statutory protection.  Members of the public are invited to submit their views by post, by email, or through the online platform.  Public forums will be held in various districts, and details will be announced in due course.  All submissions will be made public unless confidentiality is specifically requested.",
+
+    "The Immigration Department announced that the processing time for passport applications will be temporarily extended to ten working days due to system maintenance works.  Applicants who need to travel urgently may make an appointment for the expedited service at the branch offices.  It is reminded that applications should be submitted with all supporting documents, including copies of identity documents and recent photographs.  The department apologises for any inconvenience caused and thanks the public for their understanding and patience during the maintenance period.",
+
+    "The Finance Committee is invited to approve a commitment of two hundred and fifty million dollars for the second phase of the building renovation programme.  The proposed works include the replacement of air-conditioning systems, the upgrading of fire service installations, and the improvement of barrier-free access.  Subject to approval, the works will commence in the third quarter of next year and will be completed within eighteen months.  The administration will provide quarterly progress reports to the public accounts committee.",
+  ],
+
   legal: [
     "This Agreement shall be governed by and construed in accordance with the laws of the Hong Kong Special Administrative Region. The parties hereby agree that any dispute arising out of or in connection with this contract shall be submitted to the exclusive jurisdiction of the Courts of Hong Kong. Neither party shall be liable for any delay or failure to perform its obligations where such delay is caused by circumstances beyond its reasonable control, including but not limited to natural disasters, strikes, or governmental actions.",
 
