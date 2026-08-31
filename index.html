@@ -620,6 +620,9 @@ function finishTest(){
   // Save history
   saveHistory({wpm:finalWpm, acc, errors, cat:category, dur:duration, date:Date.now()});
 
+  // 通知同 origin 嘅備考 Dashboard 即時刷新
+  try{ new BroadcastChannel('typing_trainer_sync').postMessage('update'); }catch(e){}
+
   // Update weak keys
   renderWeakKeys();
 
