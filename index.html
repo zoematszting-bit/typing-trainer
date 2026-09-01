@@ -102,6 +102,30 @@
   .type-cursor{display:none;}  /* legacy, no longer used as inline element */
   @keyframes blink{0%,50%{opacity:1}51%,100%{opacity:0}}
 
+  /* ===== Full-text view（可捲動全文） ===== */
+  .ft-toggle{
+    display:flex; align-items:center; gap:8px; cursor:pointer; user-select:none;
+    font-size:.82rem; color:var(--muted); margin-top:6px;
+  }
+  .ft-toggle:hover{color:var(--txt);}
+  .ft-panel{
+    max-width:780px; width:100%; background:var(--card); border:1px solid var(--border);
+    border-radius:12px; margin-top:12px; display:none;
+  }
+  .ft-panel.open{display:block; animation:fadeUp .3s;}
+  .ft-head{
+    padding:10px 20px 6px; font-size:.78rem; color:var(--muted);
+    display:flex; justify-content:space-between; align-items:center;
+  }
+  .ft-scroll{
+    max-height:260px; overflow-y:auto; padding:4px 20px 16px;
+    font-family:var(--mono); font-size:.92rem; line-height:1.9; letter-spacing:.2px;
+  }
+  .ft-line{white-space:pre-wrap; word-break:break-all; color:var(--muted); border-radius:4px; padding:0 4px;}
+  .ft-line.cur{background:rgba(255,179,71,.09); color:var(--txt);}
+  .ft-line .char.correct{color:var(--green);}
+  .ft-line .char.incorrect{color:var(--red); background:rgba(248,113,113,.15); border-radius:2px;}
+
   /* Focus hint overlay */
   .focus-hint{
     position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
@@ -245,6 +269,12 @@
   <span>🎯 Exam Mode <small style="color:var(--muted)">(hide live WPM/accuracy)</small></span>
 </div>
 
+<!-- Full-text toggle -->
+<div class="blind-toggle" id="ftToggle">
+  <div class="blind-switch"></div>
+  <span id="ftToggleLabel">📄 全文 <small style="color:var(--muted)">(scrollable full text)</small></span>
+</div>
+
 <!-- Live stats -->
 <div class="live-stats" id="liveStats">
   <div class="live-stat" id="statWpm"><div class="num" id="liveWpm">0</div><div class="lbl" id="lblWpm">WPM</div></div>
@@ -261,6 +291,12 @@
   <input type="text" id="hiddenInput" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
          style="position:absolute;opacity:0;pointer-events:none;left:0;top:0;width:1px;height:1px;">
   <div class="focus-hint" id="focusHint">Click here or press any key to start ⌨️</div>
+</div>
+
+<!-- Scrollable full-text view -->
+<div class="ft-panel" id="ftPanel">
+  <div class="ft-head"><span id="ftHeadLabel">Full text — scroll to review</span><span id="ftPos"></span></div>
+  <div class="ft-scroll" id="ftScroll"></div>
 </div>
 
 <!-- Results -->
@@ -402,6 +438,58 @@ document.getElementById('blindToggle').addEventListener('click', function(){
   this.classList.toggle('on', blindMode);
   typedLine.classList.toggle('blind', blindMode);
 });
+
+/* Full-text view：可捲動全文（打咗着色、當前行高亮） */
+let ftOpen = false;
+let ftBuilt = false;        // lines 有冇 render 過（換文/換語言要重建）
+function renderFullText(){
+  const sc = document.getElementById('ftScroll');
+  sc.innerHTML = lines.map((L, i) => {
+    const chars = Array.from(L.text).map((c, j) => {
+      const g = L.start + j;
+      let cls = 'char';
+      if(g < typed.length) cls += (typed[g] === fullText[g]) ? ' correct' : ' incorrect';
+      return '<span class="' + cls + '">' + (c === ' ' ? '\u00A0' : c) + '</span>';
+    }).join('');
+    return '<div class="ft-line' + (i === curLine ? ' cur' : '') + '" data-li="' + i + '">' + chars + '</div>';
+  }).join('');
+  document.getElementById('ftPos').textContent = (curLine + 1) + ' / ' + lines.length;
+  ftBuilt = true;
+}
+function ftScrollToCurrent(){
+  const sc = document.getElementById('ftScroll');
+  const cur = sc.querySelector('.ft-line.cur');
+  if(cur) sc.scrollTop = Math.max(0, cur.offsetTop - sc.clientHeight/2 + cur.offsetHeight/2);
+}
+function updateFullTextView(){
+  if(!ftOpen) return;
+  if(!ftBuilt){ renderFullText(); ftScrollToCurrent(); return; }
+  // 輕量更新：淨係改 class（唔重建 DOM，保住用戶捲動位置）
+  const sc = document.getElementById('ftScroll');
+  sc.querySelectorAll('.ft-line').forEach(lineEl => {
+    const i = parseInt(lineEl.dataset.li, 10);
+    lineEl.classList.toggle('cur', i === curLine);
+    const L = lines[i];
+    if(!L) return;
+    const spans = lineEl.children;
+    for(let j = 0; j < spans.length; j++){
+      const g = L.start + j;
+      let cls = 'char';
+      if(g < typed.length) cls += (typed[g] === fullText[g]) ? ' correct' : ' incorrect';
+      if(spans[j].className !== cls) spans[j].className = cls;
+    }
+  });
+  document.getElementById('ftPos').textContent = (curLine + 1) + ' / ' + lines.length;
+}
+document.getElementById('ftToggle').addEventListener('click', function(){
+  ftOpen = !ftOpen;
+  this.classList.toggle('on', ftOpen);
+  document.getElementById('ftPanel').classList.toggle('open', ftOpen);
+  if(ftOpen){ renderFullText(); ftScrollToCurrent(); }
+});
+/* 語言切換/換文要重建全文視圖 */
+const _origRenderText = renderText;
+renderText = function(){ _origRenderText(); ftBuilt = false; if(ftOpen) renderFullText(); };
 
 /* Exam mode toggle：隱藏即時 WPM/準確率，模擬實考冇提示 */
 let examMode = false;
@@ -545,6 +633,7 @@ function updateCharStates(){
       shadow[i].classList.add('has-cursor');
     }
   }
+  updateFullTextView();
 }
 
 /* ========== Start / handle input ========== */
@@ -873,13 +962,29 @@ hiddenInput.addEventListener('blur', ()=>{ if(!testFinished) typeBox.classList.r
    自動替換等系統干預（佢哋會 dispatch 額外嘅 Backspace/字符事件）。
    空格強制走 keydown 直接處理，唔入 input value，
    iOS 偵測唔到兩連空格就永遠觸發唔到替換。 */
-/* 輸入路徑（中英通用）：
-   中文 IME（倉頡／速成）組字期間 isComposing=true，確認輸入先處理；
-   英文打字冇 composition，行為不變。空格走 keydown 唔入 value
-   （斷 iOS double-space 替換；中文素材冇空格，淨防捲動）。 */
+/* 輸入路徑（中英通用、Safari/Chrome IME 相容）：
+   Chrome：確認後有一次 isComposing=false 嘅 input → 喺 input 處理
+   Safari：確認輸入嘅 input 事件 isComposing 仲係 true，之後先 compositionend
+           → 必須喺 compositionend 處理先入到字（唔靠 input）
+   兩邊都行：composing flag + compositionend 雙保險，handleConfirmedInput 冪等（清 value 後重複調用無害） */
+let ttComposing = false;
+function handleConfirmedInput(){
+  const v = hiddenInput.value;
+  if(v){
+    for(const ch of v){
+      if(ch !== ' '){ typeChar(ch); }    // 英文空格已由 keydown 處理；中文素材冇空格
+    }
+    hiddenInput.value = '';              // 清空 → 重複調用冇嘢處理（冪等）
+  }
+}
+hiddenInput.addEventListener('compositionstart', () => { ttComposing = true; });
+hiddenInput.addEventListener('compositionend', () => {
+  ttComposing = false;
+  handleConfirmedInput();                // Safari 嘅確認時機
+});
 hiddenInput.addEventListener('keydown', e=>{
   if(testFinished) return;
-  if(e.isComposing) return;              // IME 組字期間唔干預（揀字／刪碼歸 IME 管）
+  if(e.isComposing || ttComposing) return;  // IME 組字期間唔干預（揀字／刪碼歸 IME 管）
   if(e.key === 'Backspace'){
     e.preventDefault();
     doBackspace();
@@ -889,14 +994,8 @@ hiddenInput.addEventListener('keydown', e=>{
   }
 });
 hiddenInput.addEventListener('input', (e) => {
-  if(e.isComposing) return;              // 中文組字未確認：唔當輸入
-  const v = hiddenInput.value;
-  if(v){
-    for(const ch of v){
-      if(ch !== ' '){ typeChar(ch); }    // 英文空格已由 keydown 處理；中文素材冇空格
-    }
-    hiddenInput.value = '';              // 每次清空，input 只反映「呢一下」嘅輸入
-  }
+  if(e.isComposing || ttComposing) return;  // 組字未確認：唔當輸入
+  handleConfirmedInput();                   // Chrome／純英文鍵盤嘅路徑
 });
 
 /* 路徑二（桌面 backup）：焦點喺 body 嗰陣直接打字（唔使 click） */
