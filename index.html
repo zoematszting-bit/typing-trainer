@@ -59,12 +59,13 @@
 
   /* ===== Stats bar (during test) ===== */
   .live-stats{
-    display:flex; gap:32px; justify-content:center; margin-bottom:16px;
+    display:flex; gap:26px; justify-content:center; margin-bottom:16px; flex-wrap:wrap;
     opacity:0; transition:opacity .3s;
   }
   .live-stats.show{opacity:1;}
   .live-stat{text-align:center;}
   .live-stat .num{font-size:1.8rem; font-weight:700; font-family:var(--mono);}
+  .live-stat .num.sm{font-size:1.15rem; padding-top:.42rem;}
   .live-stat .num.warn{color:var(--red);}
   .live-stat .lbl{font-size:.72rem; color:var(--muted); text-transform:uppercase; letter-spacing:1px;}
 
@@ -289,6 +290,7 @@
   <div class="live-stat" id="statWpm"><div class="num" id="liveWpm">0</div><div class="lbl" id="lblWpm">WPM</div></div>
   <div class="live-stat" id="statAcc"><div class="num" id="liveAcc">100%</div><div class="lbl" id="lblAcc">Accuracy</div></div>
   <div class="live-stat"><div class="num" id="liveTime">1:00</div><div class="lbl" id="lblTime">Time</div></div>
+  <div class="live-stat"><div class="num sm" id="liveProg">0 / 0</div><div class="lbl" id="lblProg">Words</div></div>
 </div>
 
 <!-- Typing area -->
@@ -376,6 +378,7 @@ let charErrors = {};        // {char: errorCount}
 let charAttempts = {};      // {char: attemptCount}
 let lines = [];             // [{start, end, text}] word-wrapped lines
 let curLine = 0;            // line the cursor is currently on
+let passageEnds = [];       // 每篇結束 index（接篇制：打完一篇接下一篇）
 
 const targetLine = document.getElementById('targetLine');
 const typedLine = document.getElementById('typedLine');
@@ -418,7 +421,7 @@ function updateLangUI(){
   document.getElementById('lblTime').textContent = zh ? '時間' : 'Time';
   document.getElementById('lblRaw').textContent = zh ? '原始速度' : 'Raw WPM';
   document.getElementById('lblErr').textContent = zh ? '錯字' : 'Errors';
-  document.getElementById('lblChars').textContent = zh ? '總字數' : 'Characters';
+  document.getElementById('lblChars').textContent = zh ? '總字數' : 'Words';
   document.querySelector('.chart-wrap .ct').textContent = zh ? '每分鐘字數走勢' : 'WPM over time';
   document.getElementById('retryBtn').textContent = zh ? '↻ 再打一次' : '↻ Try Again';
   document.getElementById('newTextBtn').textContent = zh ? '換一篇' : 'New Text';
@@ -450,6 +453,37 @@ document.getElementById('blindToggle').addEventListener('click', function(){
   typedLine.classList.toggle('blind', blindMode);
   updateCharStates();                    // sync 前一行嘅 blind 着色
 });
+
+/* ===== 進度統計（當前篇單位：英文 words／中文字） ===== */
+function countWords(s){
+  const t = s.trim();
+  return t ? t.split(/\s+/).length : 0;
+}
+function passageRange(){
+  let start = 0;
+  for(const end of passageEnds){
+    if(typed.length < end) return [start, end];
+    start = end;
+  }
+  const last = passageEnds[passageEnds.length-1] || fullText.length;
+  return [0, last];
+}
+function updateProgressStat(){
+  const [ps, pe] = passageRange();
+  const pos = Math.min(typed.length, pe);
+  let done, total;
+  if(lang === 'zh'){
+    done = pos - ps;
+    total = pe - ps;
+  } else {
+    done = countWords(fullText.slice(ps, pos));
+    total = countWords(fullText.slice(ps, pe));
+  }
+  const left = Math.max(0, total - done);
+  document.getElementById('liveProg').textContent = done + ' / ' + total;
+  document.getElementById('lblProg').textContent =
+    (lang === 'zh' ? '字數' : 'Words') + '（剩 ' + left + '）';
+}
 
 /* Full-text view：可捲動全文（打咗着色、當前行高亮） */
 let ftOpen = false;
@@ -674,6 +708,7 @@ function updateCharStates(){
   const prevL = lines[curLine-1];
   if(prevL) updateCtxColors(document.getElementById('prevLine'), prevL);
 
+  updateProgressStat();
   updateFullTextView();
 }
 
@@ -729,6 +764,7 @@ function typeChar(ch){
       // 時間未完 → 自動接落一篇（計時制：5 分鐘內打幾多得幾多）
       if(testActive && Date.now() < endTime - 500){
         fullText = fullText + (lang === 'zh' ? '' : ' ') + pickText();
+        passageEnds.push(fullText.length);   // 新篇結束位
         const keepTyped = typed;
         renderText();
         typed = keepTyped;
@@ -811,7 +847,8 @@ function finishTest(){
   document.getElementById('finalAcc').textContent = acc+'%';
   document.getElementById('finalRaw').textContent = rawWpm;
   document.getElementById('finalErr').textContent = errors;
-  document.getElementById('finalChars').textContent = typed.length;
+  document.getElementById('finalChars').textContent =
+    lang === 'zh' ? typed.length : countWords(typed);
 
   // Encouragement message
   let msg='';
@@ -984,8 +1021,9 @@ function resetTest(newText=false){
   liveStats.classList.remove('show');
   focusHint.classList.remove('hidden');
   document.getElementById('results').classList.remove('show');
-  if(newText) fullText = pickText();  // newText=true 先隨機揀新文本
+  if(newText){ fullText = pickText(); passageEnds = [fullText.length]; }
   renderText();
+  updateProgressStat();
   updateCharStates();                    // 初始着色（遊標＋前後文行）
   hiddenInput.value='';
 }
