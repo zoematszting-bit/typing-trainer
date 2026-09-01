@@ -712,6 +712,8 @@ function startTest(){
 /* ========== 輸入核心（typeChar / doBackspace）========== */
 function typeChar(ch){
   if(testFinished) return;
+  // 中文模式：英文字母一律唔入（素材冇字母；見到字母＝倉頡／速成碼洩漏）
+  if(lang === 'zh' && /[a-zA-Z]/.test(ch)) return;
   if(!testActive) startTest();
   if(!testActive) return;
   const idx = typed.length;
@@ -1040,7 +1042,7 @@ hiddenInput.addEventListener('input', (e) => {
   handleConfirmedInput();                   // Chrome／純英文鍵盤嘅路徑
 });
 
-/* 路徑二（桌面 backup）：焦點喺 body 嗰陣直接打字（唔使 click） */
+/* 路徑二（桌面 backup）：焦點喺 body 嗰陣直接打字（唔使 click）*/
 document.addEventListener('keydown', e=>{
   // hiddenInput 自己嘅事件由路徑一處理，唔好重複
   if(e.target === hiddenInput) return;
@@ -1048,6 +1050,11 @@ document.addEventListener('keydown', e=>{
   if(e.ctrlKey||e.metaKey||e.altKey) return;
   if(testFinished) return;
   if(e.key==='Tab') return;
+  // 即撳即 focus：輸入法（IME）需要真正輸入框先行到組字流程，
+  // 唔係倉頡碼字母會被當普通英文鍵直接入字
+  if(!e.isComposing && e.key.length === 1){
+    hiddenInput.focus();
+  }
   handleKey(e);
 });
 
