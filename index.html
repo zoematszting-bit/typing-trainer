@@ -997,7 +997,7 @@ document.getElementById('newTextBtn').addEventListener('click', ()=>{ resetTest(
 /* Focus management: clicking the box focuses the hidden input */
 typeBox.addEventListener('click', ()=>{ hiddenInput.focus(); });
 hiddenInput.addEventListener('focus', ()=>{ typeBox.classList.add('focus'); focusHint.classList.add('hidden'); });
-hiddenInput.addEventListener('blur', ()=>{ if(!testFinished) typeBox.classList.remove('focus'); });
+hiddenInput.addEventListener('blur', ()=>{ ttComposing = false; if(!testFinished) typeBox.classList.remove('focus'); });
 
 /* ========== 輸入監聽（雙軌）========== */
 
@@ -1028,7 +1028,9 @@ hiddenInput.addEventListener('compositionend', () => {
 });
 hiddenInput.addEventListener('keydown', e=>{
   if(testFinished) return;
-  if(e.isComposing || ttComposing) return;  // IME 組字期間唔干預（揀字／刪碼歸 IME 管）
+  // 淨係信自家嘅 ttComposing flag：Safari 喺 compositionend 之後嘅 keydown
+  // isComposing 有機會殘留 true，令 Backspace 被擺空氣（刪唔到中文字）
+  if(ttComposing) return;                // 真組字期間唔干預（揀字／刪碼歸 IME 管）
   if(e.key === 'Backspace'){
     e.preventDefault();
     doBackspace();
