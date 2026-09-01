@@ -76,7 +76,7 @@
   }
   .type-box.focus{border-color:var(--accent);}
   .type-area{
-    position:relative; max-height:4.6em; overflow:hidden;
+    position:relative; max-height:9.6em; overflow:hidden;
   }
   .type-line{
     font-family:var(--mono); font-size:1.25rem; line-height:2.3; letter-spacing:.3px;
@@ -84,6 +84,14 @@
     min-height:1.5em;
   }
   .type-line.target{color:var(--muted);}
+  /* 前後文行：更淡，上下留少少呼吸位 */
+  .type-line.ctx{
+    color:var(--border-strong); opacity:.75;
+    font-size:1.02rem; line-height:2.1; padding:.15em 0;
+  }
+  .type-line.ctx .char.correct{color:var(--green);}
+  .type-line.ctx .char.incorrect{color:var(--red);}
+  .type-line.ctx.blind .char.correct, .type-line.ctx.blind .char.incorrect{color:inherit;}
   .type-line.typed{color:var(--txt);}
   .type-line .char{transition:color .08s;}
   .type-line .char.correct{color:var(--green);}
@@ -219,7 +227,8 @@
 
   @media(max-width:600px){
     .type-line{font-size:1.05rem; line-height:2.1;}
-    .type-area{max-height:5em;}
+    .type-area{max-height:8.8em;}
+    .type-line.ctx{font-size:.92rem; line-height:1.9;}
     .type-box{padding:20px;}
     .result-wpm{font-size:2.8rem;}
     .live-stat .num{font-size:1.4rem;}
@@ -285,8 +294,10 @@
 <!-- Typing area -->
 <div class="type-box" id="typeBox">
   <div class="type-area">
+    <div class="type-line ctx" id="prevLine"></div>
     <div class="type-line target" id="targetLine"></div>
     <div class="type-line typed" id="typedLine"></div>
+    <div class="type-line ctx" id="nextLine"></div>
   </div>
   <input type="text" id="hiddenInput" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
          style="position:absolute;opacity:0;pointer-events:none;left:0;top:0;width:1px;height:1px;">
@@ -437,6 +448,7 @@ document.getElementById('blindToggle').addEventListener('click', function(){
   blindMode = !blindMode;
   this.classList.toggle('on', blindMode);
   typedLine.classList.toggle('blind', blindMode);
+  updateCharStates();                    // sync 前一行嘅 blind 着色
 });
 
 /* Full-text view：可捲動全文（打咗着色、當前行高亮） */
@@ -569,8 +581,33 @@ function renderText(){
   renderCurrentLine();
 }
 
+function renderCtxLine(el, L, kind){
+  el.innerHTML = '';
+  if(!L) return;
+  const frag = document.createDocumentFragment();
+  for(let i=0;i<L.text.length;i++){
+    const s = document.createElement('span');
+    s.className = 'char';
+    s.textContent = L.text[i]===' ' ? '\u00A0' : L.text[i];
+    frag.appendChild(s);
+  }
+  el.appendChild(frag);
+  if(kind === 'prev') updateCtxColors(el, L);
+}
+function updateCtxColors(el, L){
+  el.classList.toggle('blind', blindMode);
+  const spans = el.children;
+  for(let j=0;j<spans.length;j++){
+    const g = L.start + j;
+    let cls = 'char';
+    if(g < typed.length) cls += (typed[g] === fullText[g]) ? ' correct' : ' incorrect';
+    if(spans[j].className !== cls) spans[j].className = cls;
+  }
+}
 function renderCurrentLine(){
   const L = lines[curLine];
+  renderCtxLine(document.getElementById('prevLine'), lines[curLine-1], 'prev');
+  renderCtxLine(document.getElementById('nextLine'), lines[curLine+1], 'next');
   targetLine.innerHTML = '';
   typedLine.innerHTML = '';
   const tFrag = document.createDocumentFragment();
@@ -633,6 +670,10 @@ function updateCharStates(){
       shadow[i].classList.add('has-cursor');
     }
   }
+  // 上一行（前後文）着色同步
+  const prevL = lines[curLine-1];
+  if(prevL) updateCtxColors(document.getElementById('prevLine'), prevL);
+
   updateFullTextView();
 }
 
@@ -943,6 +984,7 @@ function resetTest(newText=false){
   document.getElementById('results').classList.remove('show');
   if(newText) fullText = pickText();  // newText=true 先隨機揀新文本
   renderText();
+  updateCharStates();                    // 初始着色（遊標＋前後文行）
   hiddenInput.value='';
 }
 
