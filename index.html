@@ -211,6 +211,13 @@
 <!-- Setup -->
 <div class="setup">
   <div class="setup-group">
+    <span class="setup-label">Language</span>
+    <div class="opt-row" id="langOpts">
+      <span class="opt active" data-lang="en">🇬🇧 EN</span>
+      <span class="opt" data-lang="zh">🇭🇰 中文</span>
+    </div>
+  </div>
+  <div class="setup-group">
     <span class="setup-label">Duration</span>
     <div class="opt-row" id="durOpts">
       <span class="opt" data-dur="30">30s</span>
@@ -222,12 +229,7 @@
   </div>
   <div class="setup-group">
     <span class="setup-label">Content</span>
-    <div class="opt-row" id="catOpts">
-      <span class="opt" data-cat="government">🏛️ Gov Docs</span>
-      <span class="opt active" data-cat="legal">📜 Legal</span>
-      <span class="opt" data-cat="general">📰 General</span>
-      <span class="opt" data-cat="symbols">🔣 Symbols</span>
-    </div>
+    <div class="opt-row" id="catOpts"></div>
   </div>
 </div>
 
@@ -245,9 +247,9 @@
 
 <!-- Live stats -->
 <div class="live-stats" id="liveStats">
-  <div class="live-stat" id="statWpm"><div class="num" id="liveWpm">0</div><div class="lbl">WPM</div></div>
-  <div class="live-stat" id="statAcc"><div class="num" id="liveAcc">100%</div><div class="lbl">Accuracy</div></div>
-  <div class="live-stat"><div class="num" id="liveTime">1:00</div><div class="lbl">Time</div></div>
+  <div class="live-stat" id="statWpm"><div class="num" id="liveWpm">0</div><div class="lbl" id="lblWpm">WPM</div></div>
+  <div class="live-stat" id="statAcc"><div class="num" id="liveAcc">100%</div><div class="lbl" id="lblAcc">Accuracy</div></div>
+  <div class="live-stat"><div class="num" id="liveTime">1:00</div><div class="lbl" id="lblTime">Time</div></div>
 </div>
 
 <!-- Typing area -->
@@ -268,10 +270,10 @@
     <div class="result-sub" id="resultSub"></div>
   </div>
   <div class="result-grid">
-    <div class="result-card"><div class="val" id="finalAcc">0%</div><div class="lbl">Accuracy</div></div>
-    <div class="result-card"><div class="val" id="finalRaw">0</div><div class="lbl">Raw WPM</div></div>
-    <div class="result-card warn"><div class="val" id="finalErr">0</div><div class="lbl">Errors</div></div>
-    <div class="result-card"><div class="val" id="finalChars">0</div><div class="lbl">Characters</div></div>
+    <div class="result-card"><div class="val" id="finalAcc">0%</div><div class="lbl" id="lblAcc">Accuracy</div></div>
+    <div class="result-card"><div class="val" id="finalRaw">0</div><div class="lbl" id="lblRaw">Raw WPM</div></div>
+    <div class="result-card warn"><div class="val" id="finalErr">0</div><div class="lbl" id="lblErr">Errors</div></div>
+    <div class="result-card"><div class="val" id="finalChars">0</div><div class="lbl" id="lblChars">Characters</div></div>
   </div>
   <div class="chart-wrap">
     <div class="ct">WPM over time</div>
@@ -287,14 +289,14 @@
 <div class="panels">
   <div class="panel" id="histPanel">
     <div class="panel-head" onclick="togglePanel('histPanel')">
-      <span class="pt">📊 History</span>
+      <span class="pt" id="histTitle">📊 History</span>
       <span class="arrow">▶</span>
     </div>
     <div class="panel-body" id="histBody"></div>
   </div>
   <div class="panel" id="weakPanel">
     <div class="panel-head" onclick="togglePanel('weakPanel')">
-      <span class="pt">🎯 Tricky Keys</span>
+      <span class="pt" id="weakTitle">🎯 Tricky Keys</span>
       <span class="arrow">▶</span>
     </div>
     <div class="panel-body" id="weakBody"></div>
@@ -305,7 +307,14 @@
 <script>
 /* ========== State ========== */
 let duration = 60;          // seconds
-let category = 'legal';
+let lang = 'en';                    // 'en' | 'zh'（localStorage: tt_lang）
+const CATS = {
+  en: [ {id:'government', label:'🏛️ Gov Docs'}, {id:'legal', label:'📜 Legal'},
+        {id:'general', label:'📰 General'}, {id:'symbols', label:'🔣 Symbols'} ],
+  zh: [ {id:'gov', label:'🏛️ 政府公文'}, {id:'notice', label:'📢 通告啟事'},
+        {id:'minutes', label:'📝 會議記錄'} ],
+};
+let category = 'government';
 let blindMode = false;      // blind mode: hide errors while typing
 let fullText = '';          // the passage to type
 let typed = '';             // what user has typed so far
@@ -343,6 +352,48 @@ document.getElementById('catOpts').addEventListener('click', e => {
   o.classList.add('active');
   category = o.dataset.cat;
   resetTest(true);
+});
+
+/* ===== 語言切換（EN／中文）===== */
+function renderCatButtons(){
+  document.getElementById('catOpts').innerHTML = CATS[lang].map((c, i) =>
+    '<span class="opt' + (i === 0 ? ' active' : '') + '" data-cat="' + c.id + '">' + c.label + '</span>'
+  ).join('');
+}
+function updateLangUI(){
+  const zh = lang === 'zh';
+  document.title = zh ? '中文打字練習 — PSII 備考' : 'Typing Trainer — PSII Practice';
+  document.querySelector('.subtitle').textContent = zh
+    ? 'PSII 中文文書處理測驗練習 — 目標每分鐘 20 字（倉頡／速成）'
+    : 'Ad-free typing practice for PSII — aim for 50+ WPM';
+  document.getElementById('lblWpm').textContent = zh ? '字／分' : 'WPM';
+  document.getElementById('lblAcc').textContent = zh ? '準確率' : 'Accuracy';
+  document.getElementById('lblTime').textContent = zh ? '時間' : 'Time';
+  document.getElementById('lblRaw').textContent = zh ? '原始速度' : 'Raw WPM';
+  document.getElementById('lblErr').textContent = zh ? '錯字' : 'Errors';
+  document.getElementById('lblChars').textContent = zh ? '總字數' : 'Characters';
+  document.querySelector('.chart-wrap .ct').textContent = zh ? '每分鐘字數走勢' : 'WPM over time';
+  document.getElementById('retryBtn').textContent = zh ? '↻ 再打一次' : '↻ Try Again';
+  document.getElementById('newTextBtn').textContent = zh ? '換一篇' : 'New Text';
+  document.getElementById('histTitle').textContent = zh ? '📊 歷史記錄' : '📊 History';
+  document.getElementById('weakTitle').textContent = zh ? '🎯 常錯字' : '🎯 Tricky Keys';
+  document.getElementById('focusHint').textContent = zh
+    ? '撳呢度開始打字（請切換倉頡／速成輸入法）⌨️' : 'Click here or press any key to start ⌨️';
+}
+function switchLang(l){
+  if(lang === l) return;
+  lang = l;
+  localStorage.setItem('tt_lang', l);
+  document.querySelectorAll('#langOpts .opt').forEach(x => x.classList.toggle('active', x.dataset.lang === l));
+  TEXTS = (l === 'zh') ? TEXTS_ZH : TEXTS_EN;
+  renderCatButtons();
+  category = CATS[l][0].id;
+  updateLangUI();
+  resetTest(true);
+}
+document.getElementById('langOpts').addEventListener('click', e => {
+  const o = e.target.closest('.opt'); if(!o) return;
+  switchLang(o.dataset.lang);
 });
 
 /* Blind mode toggle */
@@ -384,7 +435,7 @@ function pickText(){
 function measureCharWidth(){
   const span = document.createElement('span');
   span.className = 'char';
-  span.textContent = 'MMMMMMMMMM';
+  span.textContent = lang === 'zh' ? '中中中中中中中中中中' : 'MMMMMMMMMM';
   targetLine.appendChild(span);
   const w = span.getBoundingClientRect().width / 10;
   targetLine.innerHTML = '';
@@ -397,16 +448,23 @@ function isLineBoundary(i){
   return !lines.some(L => i >= L.start && i < L.end);
 }
 
+const ZH_PUNCT = '，。、；：「」『』（）》？！…—';
+
 function renderText(){
   const cw = measureCharWidth();
   const raw = Math.floor(typeArea.clientWidth / cw) - 1;
-  const maxChars = (isFinite(raw) && raw >= 20) ? raw : 40;  // 防禦：量度失敗用 40
+  const maxChars = (isFinite(raw) && raw >= (lang === 'zh' ? 10 : 20)) ? raw : (lang === 'zh' ? 18 : 40);
   lines = [];
   let pos = 0;
   while(pos < fullText.length){
     let end = Math.min(pos + maxChars, fullText.length);
-    if(end < fullText.length){
-      // 喺行尾範圍搵最後一個空格斬（唔斬開字詞）；搵唔到就硬斬
+    if(lang === 'zh'){
+      // 中文冇空格：直接按字符斬，標點跟前行（唔好行首標點）
+      if(end < fullText.length && ZH_PUNCT.includes(fullText[end])){
+        while(end < fullText.length && ZH_PUNCT.includes(fullText[end])){ end++; }
+      }
+    } else if(end < fullText.length){
+      // 英文：喺行尾範圍搵最後一個空格斬（唔斬開字詞）；搵唔到就硬斬
       const lastSpace = fullText.lastIndexOf(' ', end);
       if(lastSpace > pos){
         end = lastSpace;
@@ -414,8 +472,10 @@ function renderText(){
     }
     lines.push({start: pos, end: end, text: fullText.slice(pos, end)});
     pos = end;
-    // 行與行之間嘅空格（可能多過一個）全部跳過
-    while(pos < fullText.length && fullText[pos] === ' '){ pos++; }
+    if(lang !== 'zh'){
+      // 行與行之間嘅空格（可能多過一個）全部跳過
+      while(pos < fullText.length && fullText[pos] === ' '){ pos++; }
+    }
   }
   curLine = 0;
   renderCurrentLine();
@@ -536,7 +596,7 @@ function typeChar(ch){
     if(typed.length >= fullText.length){
       // 時間未完 → 自動接落一篇（計時制：5 分鐘內打幾多得幾多）
       if(testActive && Date.now() < endTime - 500){
-        fullText = fullText + ' ' + pickText();
+        fullText = fullText + (lang === 'zh' ? '' : ' ') + pickText();
         const keepTyped = typed;
         renderText();
         typed = keepTyped;
@@ -577,6 +637,10 @@ function handleKey(e){
 
 /* ========== Calculations ========== */
 function calcWPM(str, seconds){
+  if(lang === 'zh'){
+    // 中文：每分鐘字數（1 字 = 1 字符），PSII 要求 20 字／分
+    return Math.round(str.length / (seconds/60));
+  }
   const words = str.length / 5;
   return Math.round(words / (seconds/60));
 }
@@ -619,10 +683,17 @@ function finishTest(){
 
   // Encouragement message
   let msg='';
-  if(finalWpm>=50) msg=`🎉 Excellent! You're at PSII level (50+ WPM).`;
-  else if(finalWpm>=40) msg=`💪 Almost there — keep pushing for 50 WPM!`;
-  else if(finalWpm>=30) msg=`📈 Good progress. Aim higher next time.`;
-  else msg=`🌱 Keep practicing — speed comes with consistency.`;
+  if(lang === 'zh'){
+    if(finalWpm>=20) msg=`🎉 已達 PSII 水平（20 字／分以上）！`;
+    else if(finalWpm>=15) msg=`💪 就快到位——向 20 字／分推進！`;
+    else if(finalWpm>=10) msg=`📈 有進步，繼續向上目標！`;
+    else msg=`🌱 持之以恆，速度自然嚟——繼續練！`;
+  } else {
+    if(finalWpm>=50) msg=`🎉 Excellent! You're at PSII level (50+ WPM).`;
+    else if(finalWpm>=40) msg=`💪 Almost there — keep pushing for 50 WPM!`;
+    else if(finalWpm>=30) msg=`📈 Good progress. Aim higher next time.`;
+    else msg=`🌱 Keep practicing — speed comes with consistency.`;
+  }
   document.getElementById('resultSub').textContent = msg;
 
   // Chart
@@ -655,7 +726,8 @@ function drawChart(){
   ctx.clearRect(0,0,W,H);
   if(wpmHistory.length<2) return;
 
-  const maxWpm = Math.max(...wpmHistory.map(p=>p.wpm), 55);  // min 55 so 50-WPM target line is always visible
+  const targetWpmNow = lang === 'zh' ? 20 : 50;
+  const maxWpm = Math.max(...wpmHistory.map(p=>p.wpm), targetWpmNow + 5);
   const pad = 24;
   const cw = W-pad*2, ch = H-pad*2;
 
@@ -675,7 +747,7 @@ function drawChart(){
     ctx.beginPath(); ctx.moveTo(pad,targetY); ctx.lineTo(W-pad,targetY); ctx.stroke();
     ctx.setLineDash([]);
     ctx.fillStyle='#34d399'; ctx.font='bold 10px sans-serif';
-    ctx.fillText('50 = PSII', W-pad-50, targetY-4);
+    ctx.fillText((lang === 'zh' ? '20' : '50') + ' = PSII', W-pad-50, targetY-4);
   }
 
   // Line
@@ -700,15 +772,16 @@ function drawChart(){
 }
 
 /* ========== History (localStorage) ========== */
-const HIST_KEY = 'typing_trainer_history';
+function histKey(){ return lang === 'zh' ? 'typing_trainer_history_zh' : 'typing_trainer_history'; }
 function getHistory(){
-  try{ return JSON.parse(localStorage.getItem(HIST_KEY))||[]; }catch{ return []; }
+  try{ return JSON.parse(localStorage.getItem(histKey()))||[]; }catch{ return []; }
 }
 function saveHistory(rec){
+  rec.lang = lang;
   const hist = getHistory();
   hist.push(rec);
-  if(hist.length>50) hist.shift();
-  localStorage.setItem(HIST_KEY, JSON.stringify(hist));
+  if(hist.length>200) hist.shift();
+  localStorage.setItem(histKey(), JSON.stringify(hist));
 }
 function renderHistory(){
   const hist = getHistory().slice(-10).reverse();
@@ -723,7 +796,7 @@ function renderHistory(){
       else if(diff<-1) trend = `<span class="hist-trend down">↓${Math.abs(diff)}</span>`;
       else trend = `<span class="hist-trend flat">→</span>`;
     }
-    const catIcon = {legal:'📜',general:'📰',symbols:'🔣'}[r.cat]||'';
+    const catIcon = {government:'🏛️',legal:'📜',general:'📰',symbols:'🔣',gov:'🏛️',notice:'📢',minutes:'📝'}[r.cat]||'';
     const d = new Date(r.date);
     const ds = d.toLocaleDateString('en-GB',{month:'short',day:'numeric'})+' '+d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
     return `<div class="hist-item">
@@ -800,22 +873,27 @@ hiddenInput.addEventListener('blur', ()=>{ if(!testFinished) typeBox.classList.r
    自動替換等系統干預（佢哋會 dispatch 額外嘅 Backspace/字符事件）。
    空格強制走 keydown 直接處理，唔入 input value，
    iOS 偵測唔到兩連空格就永遠觸發唔到替換。 */
+/* 輸入路徑（中英通用）：
+   中文 IME（倉頡／速成）組字期間 isComposing=true，確認輸入先處理；
+   英文打字冇 composition，行為不變。空格走 keydown 唔入 value
+   （斷 iOS double-space 替換；中文素材冇空格，淨防捲動）。 */
 hiddenInput.addEventListener('keydown', e=>{
   if(testFinished) return;
+  if(e.isComposing) return;              // IME 組字期間唔干預（揀字／刪碼歸 IME 管）
   if(e.key === 'Backspace'){
     e.preventDefault();
     doBackspace();
   } else if(e.key === ' '){
-    e.preventDefault();   // 防頁面捲動 + 空格唔入 value（斷 iOS 替換觸發條件）
-    typeChar(' ');
+    e.preventDefault();                  // 防頁面捲動
+    if(lang !== 'zh') typeChar(' ');     // 英文先直接輸入空格
   }
-  // 其他字符：放行入 input value → 由 input 事件處理
 });
-hiddenInput.addEventListener('input', () => {
+hiddenInput.addEventListener('input', (e) => {
+  if(e.isComposing) return;              // 中文組字未確認：唔當輸入
   const v = hiddenInput.value;
   if(v){
     for(const ch of v){
-      if(ch !== ' '){ typeChar(ch); }   // 空格已由 keydown 處理
+      if(ch !== ' '){ typeChar(ch); }    // 英文空格已由 keydown 處理；中文素材冇空格
     }
     hiddenInput.value = '';              // 每次清空，input 只反映「呢一下」嘅輸入
   }
@@ -847,6 +925,17 @@ window.addEventListener('resize', ()=>{
 });
 
 /* ========== Init ========== */
+(function initLang(){
+  const saved = localStorage.getItem('tt_lang');
+  if(saved === 'zh' || saved === 'en'){
+    lang = saved;
+  }
+  document.querySelectorAll('#langOpts .opt').forEach(x => x.classList.toggle('active', x.dataset.lang === lang));
+  TEXTS = (lang === 'zh') ? TEXTS_ZH : TEXTS_EN;
+  renderCatButtons();
+  category = CATS[lang][0].id;
+  updateLangUI();
+})();
 resetTest(true);  // 第一次必須揀新文本
 renderHistory();
 renderWeakKeys();
