@@ -533,7 +533,18 @@ function typeChar(ch){
     }
     typed += ch;
     updateCharStates();
-    if(typed.length >= fullText.length){ finishTest(); }
+    if(typed.length >= fullText.length){
+      // 時間未完 → 自動接落一篇（計時制：5 分鐘內打幾多得幾多）
+      if(testActive && Date.now() < endTime - 500){
+        fullText = fullText + ' ' + pickText();
+        const keepTyped = typed;
+        renderText();
+        typed = keepTyped;
+        updateCharStates();
+      } else {
+        finishTest();
+      }
+    }
   }
 }
 
