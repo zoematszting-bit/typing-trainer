@@ -547,19 +547,20 @@ document.getElementById('examToggle').addEventListener('click', function(){
 });
 
 /* ========== Pick a random text ========== */
+/* 無放回抽篇：同一次測試內用過嘅篇唔會再抽（杜絕重複），
+   打晒成個池先重置。長文需求由接篇制自然處理（打完一篇自動接下一篇）。 */
+let usedPassages = [];
 function pickText(){
   const pool = TEXTS[category];
-  let txt = pool[Math.floor(Math.random()*pool.length)];
-  // For longer durations, concatenate 2 passages
-  if(duration >= 120){
-    let t2 = pool[Math.floor(Math.random()*pool.length)];
-    txt += ' ' + t2;
+  if(usedPassages.length >= pool.length){
+    usedPassages = [];   // 用晒成個池，重置再抽
   }
-  if(duration >= 180){
-    let t3 = pool[Math.floor(Math.random()*pool.length)];
-    txt += ' ' + t3;
-  }
-  return txt;
+  let idx;
+  do {
+    idx = Math.floor(Math.random() * pool.length);
+  } while(usedPassages.includes(idx));
+  usedPassages.push(idx);
+  return pool[idx];
 }
 
 /* ========== Line-by-line dual-line rendering ========== */
@@ -1021,7 +1022,7 @@ function resetTest(newText=false){
   liveStats.classList.remove('show');
   focusHint.classList.remove('hidden');
   document.getElementById('results').classList.remove('show');
-  if(newText){ fullText = pickText(); passageEnds = [fullText.length]; }
+  if(newText){ usedPassages = []; fullText = pickText(); passageEnds = [fullText.length]; }
   renderText();
   updateProgressStat();
   updateCharStates();                    // 初始着色（遊標＋前後文行）
