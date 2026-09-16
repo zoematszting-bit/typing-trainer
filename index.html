@@ -334,9 +334,10 @@
 
 <!-- Milestone lamps：每 50 字著一盞（200=🌸），顏色反映即時速度 -->
 <div class="milestones" id="milestones">
+  <span class="ms-dot" data-th="20"></span><span class="ms-lbl">20</span>
   <span class="ms-dot" data-th="50"></span><span class="ms-lbl">50</span>
-  <span class="ms-dot" data-th="100"></span><span class="ms-lbl">100</span>
-  <span class="ms-dot" data-th="150"></span><span class="ms-lbl">150</span>
+  <span class="ms-dot" data-th="80"></span><span class="ms-lbl">80</span>
+  <span class="ms-dot" data-th="120"></span><span class="ms-lbl">120</span>
   <span class="ms-dot ms-final" data-th="200"></span><span class="ms-lbl">200 🌸</span>
   <span class="ms-count" id="msCount">✦ 0</span>
 </div>
@@ -533,8 +534,10 @@ function updateMilestones(){
   const count = lang === 'zh' ? typed.length : countWords(typed);
   const target = lang === 'zh' ? 20 : 40;
   const wpm = liveWpmNow();
-  dots.forEach(dot => {
-    const th = parseInt(dot.dataset.th, 10);
+  const ths = [...dots].map(d => parseInt(d.dataset.th, 10));
+  let prevTh = 0;
+  dots.forEach((dot, i) => {
+    const th = ths[i];
     const lit = count >= th;
     const wasLit = dot.classList.contains('on');
     dot.classList.toggle('on', lit);
@@ -547,6 +550,23 @@ function updateMilestones(){
       void dot.offsetWidth;             // restart 動畫
       dot.classList.add('pop');
     }
+    // 漸亮：未著嘅下一盞按進度由底向上注滿（每一刻都見到行緊去邊）
+    if(!lit && !dot.classList.contains('bloom')){
+      const seg = th - prevTh;
+      const fill = seg > 0 ? Math.max(0, Math.min(1, (count - prevTh) / seg)) : 0;
+      if(fill > 0.02){
+        const alpha = 0.22 + 0.5 * fill;
+        dot.style.background = 'linear-gradient(to top, rgba(255,107,53,' + alpha.toFixed(2) + ') ' + (fill*100).toFixed(0) + '%, transparent ' + (fill*100).toFixed(0) + '%)';
+        dot.style.borderColor = fill > 0.6 ? 'var(--accent)' : '';
+      } else {
+        dot.style.background = '';
+        dot.style.borderColor = '';
+      }
+    } else {
+      dot.style.background = '';
+      dot.style.borderColor = '';
+    }
+    if(lit) prevTh = th;
   });
   document.getElementById('msCount').textContent = '✦ ' + count;
 }
