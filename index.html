@@ -111,6 +111,32 @@
   .type-cursor{display:none;}  /* legacy, no longer used as inline element */
   @keyframes blink{0%,50%{opacity:1}51%,100%{opacity:0}}
 
+  /* ===== Milestone lamps ===== */
+  .milestones{
+    max-width:780px; width:100%; display:flex; align-items:center;
+    justify-content:center; gap:9px; margin-top:10px; user-select:none;
+  }
+  .ms-dot{
+    width:13px; height:13px; border-radius:50%;
+    border:2px solid var(--border); transition:all .3s; flex-shrink:0;
+  }
+  .ms-dot.on{ background:var(--accent); border-color:var(--accent);
+    box-shadow:0 0 9px rgba(255,107,53,.55); }
+  .ms-dot.on-target{ background:var(--green); border-color:var(--green);
+    box-shadow:0 0 11px rgba(52,211,153,.65); }
+  .ms-dot.bloom{
+    width:auto; height:auto; border:none; background:none; box-shadow:none;
+    font-size:1.25rem; animation:bloomSpin 4s ease-in-out infinite;
+  }
+  .ms-dot.pop{ animation:popDot .45s; }
+  @keyframes popDot{ 0%{transform:scale(1)} 45%{transform:scale(1.7)} 100%{transform:scale(1)} }
+  @keyframes bloomSpin{ 0%,100%{transform:scale(1) rotate(-6deg)} 50%{transform:scale(1.18) rotate(6deg)} }
+  .ms-lbl{ font-size:.66rem; color:var(--muted); letter-spacing:.5px; }
+  .ms-count{ margin-left:10px; font-family:var(--mono); font-size:.78rem; color:var(--accent2); }
+  /* 即時 WPM 上色 */
+  .live-stat .num.at-target{ color:var(--green); }
+  .live-stat .num.near-target{ color:var(--accent2); }
+
   /* ===== Full-text view（可捲動全文） ===== */
   .ft-toggle{
     display:flex; align-items:center; gap:8px; cursor:pointer; user-select:none;
@@ -306,6 +332,15 @@
   <div class="focus-hint" id="focusHint">Click here or press any key to start ⌨️</div>
 </div>
 
+<!-- Milestone lamps：每 50 字著一盞（200=🌸），顏色反映即時速度 -->
+<div class="milestones" id="milestones">
+  <span class="ms-dot" data-th="50"></span><span class="ms-lbl">50</span>
+  <span class="ms-dot" data-th="100"></span><span class="ms-lbl">100</span>
+  <span class="ms-dot" data-th="150"></span><span class="ms-lbl">150</span>
+  <span class="ms-dot ms-final" data-th="200"></span><span class="ms-lbl">200 🌸</span>
+  <span class="ms-count" id="msCount">✦ 0</span>
+</div>
+
 <!-- Scrollable full-text view -->
 <div class="ft-panel" id="ftPanel">
   <div class="ft-head"><span id="ftHeadLabel">Full text — scroll to review</span><span id="ftPos"></span></div>
@@ -483,6 +518,37 @@ function updateProgressStat(){
   document.getElementById('liveProg').textContent = done + ' / ' + total;
   document.getElementById('lblProg').textContent =
     (lang === 'zh' ? '字數' : 'Words') + '（剩 ' + left + '）';
+}
+
+/* ===== 里程碑燈（每 50 字著一盞；顏色反映即時速度；200=🌸） ===== */
+function liveWpmNow(){
+  if(!startTime) return 0;
+  const elapsed = (Date.now() - startTime) / 1000;
+  if(elapsed < 2) return 0;             // 開頭太短唔準，唔上色
+  return calcWPM(typed, elapsed);
+}
+function updateMilestones(){
+  const dots = document.querySelectorAll('#milestones .ms-dot');
+  if(!dots.length) return;
+  const count = lang === 'zh' ? typed.length : countWords(typed);
+  const target = lang === 'zh' ? 20 : 40;
+  const wpm = liveWpmNow();
+  dots.forEach(dot => {
+    const th = parseInt(dot.dataset.th, 10);
+    const lit = count >= th;
+    const wasLit = dot.classList.contains('on');
+    dot.classList.toggle('on', lit);
+    dot.classList.toggle('on-target', lit && wpm >= target);
+    const bloom = lit && th >= 200;
+    dot.classList.toggle('bloom', bloom);
+    dot.textContent = bloom ? '🌸' : '';
+    if(lit && !wasLit){
+      dot.classList.remove('pop');
+      void dot.offsetWidth;             // restart 動畫
+      dot.classList.add('pop');
+    }
+  });
+  document.getElementById('msCount').textContent = '✦ ' + count;
 }
 
 /* Full-text view：可捲動全文（打咗着色、當前行高亮） */
@@ -710,6 +776,7 @@ function updateCharStates(){
   if(prevL) updateCtxColors(document.getElementById('prevLine'), prevL);
 
   updateProgressStat();
+  updateMilestones();
   updateFullTextView();
 }
 
@@ -740,7 +807,11 @@ function startTest(){
     const wpm = calcWPM(typed, elapsed);
     const acc = calcAccuracy();
     wpmHistory.push({t: Math.round(elapsed), wpm});
-    document.getElementById('liveWpm').textContent = wpm;
+    const wpmEl = document.getElementById('liveWpm');
+    wpmEl.textContent = wpm;
+    const tgt = lang === 'zh' ? 20 : 40;
+    wpmEl.classList.toggle('at-target', wpm >= tgt);
+    wpmEl.classList.toggle('near-target', wpm >= tgt * 0.8 && wpm < tgt);
     document.getElementById('liveAcc').textContent = acc+'%';
   }, 1000);
 }
