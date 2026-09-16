@@ -13,7 +13,7 @@
   *{box-sizing:border-box;margin:0;padding:0}
   body{
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
-    background:var(--bg); color:var(--txt); min-height:100vh;
+    background:var(--bg); color:var(--txt); min-height:100vh; max-width:1160px; margin:0 auto;
     display:flex; flex-direction:column; align-items:center; padding:24px 16px 60px;
   }
   h1{font-size:1.6rem; margin-bottom:4px;}
@@ -71,8 +71,8 @@
 
   /* ===== Typing area ===== */
   .type-box{
-    max-width:780px; width:100%; background:var(--card); border:1px solid var(--border);
-    border-radius:16px; padding:32px; position:relative;
+    max-width:1040px; width:100%; background:var(--card); border:1px solid var(--border);
+    border-radius:16px; padding:36px 44px; position:relative;
     transition:border-color .2s;
   }
   .type-box.focus{border-color:var(--accent);}
@@ -80,7 +80,7 @@
     position:relative; max-height:9.6em; overflow:hidden;
   }
   .type-line{
-    font-family:var(--mono); font-size:1.25rem; line-height:2.3; letter-spacing:.3px;
+    font-family:var(--mono); font-size:1.34rem; line-height:2.3; letter-spacing:.4px;
     color:var(--muted); user-select:none; word-break:break-all; white-space:pre-wrap;
     min-height:1.5em;
   }
@@ -88,7 +88,7 @@
   /* 前後文行：更淡，上下留少少呼吸位 */
   .type-line.ctx{
     color:var(--border-strong); opacity:.75;
-    font-size:1.02rem; line-height:2.1; padding:.15em 0;
+    font-size:1.1rem; line-height:2.1; padding:.15em 0;
   }
   .type-line.ctx .char.correct{color:var(--green);}
   .type-line.ctx .char.incorrect{color:var(--red);}
@@ -113,7 +113,7 @@
 
   /* ===== Milestone lamps ===== */
   .milestones{
-    max-width:780px; width:100%; display:flex; align-items:center;
+    max-width:1040px; width:100%; display:flex; align-items:center;
     justify-content:center; gap:9px; margin-top:10px; user-select:none;
   }
   .ms-dot{
@@ -144,7 +144,7 @@
   }
   .ft-toggle:hover{color:var(--txt);}
   .ft-panel{
-    max-width:780px; width:100%; background:var(--card); border:1px solid var(--border);
+    max-width:1040px; width:100%; background:var(--card); border:1px solid var(--border);
     border-radius:12px; margin-top:12px; display:none;
   }
   .ft-panel.open{display:block; animation:fadeUp .3s;}
@@ -171,7 +171,7 @@
   .focus-hint.hidden{opacity:0; pointer-events:none;}
 
   /* ===== Results ===== */
-  .results{max-width:780px; width:100%; margin-top:24px; display:none;}
+  .results{max-width:1040px; width:100%; margin-top:24px; display:none;}
   .results.show{display:block; animation:fadeUp .4s;}
   @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
   .result-head{text-align:center; margin-bottom:20px;}
@@ -208,7 +208,7 @@
   .btn-ghost:hover{border-color:var(--accent2);}
 
   /* ===== History & Weak keys (collapsible) ===== */
-  .panels{max-width:780px; width:100%; margin-top:28px;}
+  .panels{max-width:1040px; width:100%; margin-top:28px;}
   .panel{
     background:var(--card); border:1px solid var(--border); border-radius:12px;
     margin-bottom:12px; overflow:hidden;
@@ -538,7 +538,7 @@ function updateMilestones(){
     const lit = count >= th;
     const wasLit = dot.classList.contains('on');
     dot.classList.toggle('on', lit);
-    dot.classList.toggle('on-target', lit && wpm >= target);
+    dot.classList.toggle('on-target', lit && wpm >= target && !examMode);
     const bloom = lit && th >= 200;
     dot.classList.toggle('bloom', bloom);
     dot.textContent = bloom ? '🌸' : '';
@@ -653,8 +653,9 @@ const ZH_PUNCT = '，。、；：「」『』（）》？！…—';
 
 function renderText(){
   const cw = measureCharWidth();
-  const raw = Math.floor(typeArea.clientWidth / cw) - 1;
-  const maxChars = (isFinite(raw) && raw >= (lang === 'zh' ? 10 : 20)) ? raw : (lang === 'zh' ? 18 : 40);
+  const raw = Math.floor(typeArea.clientWidth / cw) - 4;  // 預留行尾空格組，防止 pre-wrap 爆行
+  const raw2 = raw + 3;  // 抵銷下方 -4 buffer（淨效果同以前一樣）
+  const maxChars = (isFinite(raw2) && raw2 >= (lang === 'zh' ? 10 : 20)) ? raw2 : (lang === 'zh' ? 18 : 40);
   lines = [];
   let pos = 0;
   while(pos < fullText.length){
@@ -671,12 +672,13 @@ function renderText(){
         end = lastSpace;
       }
     }
+    if(lang !== 'zh' && end < fullText.length && fullText[end] === ' ' && end > pos && fullText[end-1] !== ' '){
+      // 斬點啱好喺空格度（lastSpace）：佢連同後面連續空格（句號後雙空格）
+      // 全部歸本行尾顯示（nbsp）——考試要打空格，唔自動省略
+      while(end < fullText.length && fullText[end] === ' '){ end++; }
+    }
     lines.push({start: pos, end: end, text: fullText.slice(pos, end)});
     pos = end;
-    if(lang !== 'zh'){
-      // 行與行之間嘅空格（可能多過一個）全部跳過
-      while(pos < fullText.length && fullText[pos] === ' '){ pos++; }
-    }
   }
   curLine = 0;
   renderCurrentLine();
@@ -1140,6 +1142,11 @@ hiddenInput.addEventListener('keydown', e=>{
   if(testFinished) return;
   // 淨係信自家嘅 ttComposing flag：Safari 喺 compositionend 之後嘅 keydown
   // isComposing 有機會殘留 true，令 Backspace 被擺空氣（刪唔到中文字）
+  if(ttComposing && hiddenInput.value === ''){
+    // 防禦：旗標話組字中，但 buffer 已空＝compositionend 漏發，
+    // 旗標卡住會令 Backspace 永久失效——安全重置
+    ttComposing = false;
+  }
   if(ttComposing) return;                // 真組字期間唔干預（揀字／刪碼歸 IME 管）
   if(e.key === 'Backspace'){
     e.preventDefault();
