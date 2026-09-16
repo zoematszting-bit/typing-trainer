@@ -581,7 +581,7 @@ function renderFullText(){
       const g = L.start + j;
       let cls = 'char';
       if(g < typed.length) cls += (typed[g] === fullText[g]) ? ' correct' : ' incorrect';
-      return '<span class="' + cls + '">' + (c === ' ' ? '\u00A0' : c) + '</span>';
+      return '<span class="' + cls + '">' + displayChar(c) + '</span>';
     }).join('');
     return '<div class="ft-line' + (i === curLine ? ' cur' : '') + '" data-li="' + i + '">' + chars + '</div>';
   }).join('');
@@ -671,31 +671,43 @@ function isLineBoundary(i){
 
 const ZH_PUNCT = '，。、；：「」『』（）》？！…—';
 
+/* 考試格式顯示：Tab = 4 格縮排、Enter(\n) = ↵ 淡色提示 */
+function displayChar(c){
+  if(c === '\t') return '\u00A0\u00A0\u00A0\u00A0';
+  if(c === '\n') return '↵';
+  return c === ' ' ? '\u00A0' : c;
+}
+
 function renderText(){
   const cw = measureCharWidth();
   const raw = Math.floor(typeArea.clientWidth / cw) - 4;  // 預留行尾空格組，防止 pre-wrap 爆行
-  const raw2 = raw + 3;  // 抵銷下方 -4 buffer（淨效果同以前一樣）
+  const raw2 = raw + 3;
   const maxChars = (isFinite(raw2) && raw2 >= (lang === 'zh' ? 10 : 20)) ? raw2 : (lang === 'zh' ? 18 : 40);
   lines = [];
   let pos = 0;
   while(pos < fullText.length){
-    let end = Math.min(pos + maxChars, fullText.length);
+    // 段首 Tab 佔 4 格寬
+    const budget = maxChars - (fullText[pos] === '\t' ? 4 : 0);
+    // 段落硬斷點：\n 歸本行尾（打 Enter 跳段）
+    const nl = fullText.indexOf('\n', pos);
+    const hardEnd = nl === -1 ? fullText.length : nl + 1;
+    let end = Math.min(pos + budget, hardEnd, fullText.length);
     if(lang === 'zh'){
-      // 中文冇空格：直接按字符斬，標點跟前行（唔好行首標點）
-      if(end < fullText.length && ZH_PUNCT.includes(fullText[end])){
-        while(end < fullText.length && ZH_PUNCT.includes(fullText[end])){ end++; }
+      // 中文：標點跟前行（唔好行首標點）——限喺 hardEnd 內
+      if(end < hardEnd && end < fullText.length && ZH_PUNCT.includes(fullText[end])){
+        while(end < hardEnd && ZH_PUNCT.includes(fullText[end])){ end++; }
       }
-    } else if(end < fullText.length){
-      // 英文：喺行尾範圍搵最後一個空格斬（唔斬開字詞）；搵唔到就硬斬
-      const lastSpace = fullText.lastIndexOf(' ', end);
-      if(lastSpace > pos){
+    } else if(end < hardEnd && end < fullText.length){
+      // 英文 word wrap：喺範圍內搵最後空格斬（唔斬開字詞）
+      const lastSpace = fullText.lastIndexOf(' ', Math.min(end, hardEnd));
+      if(lastSpace > pos && lastSpace < hardEnd){
         end = lastSpace;
       }
     }
-    if(lang !== 'zh' && end < fullText.length && fullText[end] === ' ' && end > pos && fullText[end-1] !== ' '){
-      // 斬點啱好喺空格度（lastSpace）：佢連同後面連續空格（句號後雙空格）
-      // 全部歸本行尾顯示（nbsp）——考試要打空格，唔自動省略
-      while(end < fullText.length && fullText[end] === ' '){ end++; }
+    if(lang !== 'zh' && end < hardEnd && end < fullText.length &&
+       fullText[end] === ' ' && end > pos && fullText[end-1] !== ' '){
+      // 空格組（句號後雙空格）歸本行尾——考試要打空格
+      while(end < hardEnd && fullText[end] === ' '){ end++; }
     }
     lines.push({start: pos, end: end, text: fullText.slice(pos, end)});
     pos = end;
@@ -711,7 +723,7 @@ function renderCtxLine(el, L, kind){
   for(let i=0;i<L.text.length;i++){
     const s = document.createElement('span');
     s.className = 'char';
-    s.textContent = L.text[i]===' ' ? '\u00A0' : L.text[i];
+    s.textContent = displayChar(L.text[i]);
     frag.appendChild(s);
   }
   el.appendChild(frag);
@@ -738,7 +750,7 @@ function renderCurrentLine(){
   for(let i=0;i<L.text.length;i++){
     const tSpan = document.createElement('span');
     tSpan.className = 'char';
-    tSpan.textContent = L.text[i]===' ' ? '\u00A0' : L.text[i];
+    tSpan.textContent = displayChar(L.text[i]);
     tFrag.appendChild(tSpan);
     const ySpan = document.createElement('span');
     ySpan.className = 'char pending';
@@ -891,9 +903,9 @@ function handleKey(e){
     doBackspace();
     return;
   }
-  if(e.key.length === 1){
+  if(e.key.length === 1 || e.key === 'Tab' || e.key === 'Enter'){
     e.preventDefault();
-    typeChar(e.key);
+    typeChar(e.key === 'Tab' ? '\t' : (e.key === 'Enter' ? '\n' : e.key));
   }
 }
 
@@ -1153,6 +1165,11 @@ function handleConfirmedInput(){
     hiddenInput.value = '';              // 清空 → 重複調用冇嘢處理（冪等）
   }
 }
+hiddenInput.addEventListener('paste', e => {
+  e.preventDefault();                    // 考試規則：不可複製貼上（相同字句都唔可以）
+});
+hiddenInput.addEventListener('copy', e => e.preventDefault());
+hiddenInput.addEventListener('cut', e => e.preventDefault());
 hiddenInput.addEventListener('compositionstart', () => { ttComposing = true; });
 hiddenInput.addEventListener('compositionend', () => {
   ttComposing = false;
@@ -1174,6 +1191,12 @@ hiddenInput.addEventListener('keydown', e=>{
   } else if(e.key === ' '){
     e.preventDefault();                  // 防頁面捲動
     if(lang !== 'zh') typeChar(' ');     // 英文先直接輸入空格
+  } else if(e.key === 'Tab'){
+    e.preventDefault();                  // 考試格式：每段開首 Tab（唔可以 move focus）
+    typeChar('\t');
+  } else if(e.key === 'Enter'){
+    e.preventDefault();                  // 考試格式：整段完成先按一次 Enter
+    typeChar('\n');
   }
 });
 hiddenInput.addEventListener('input', (e) => {
@@ -1188,11 +1211,14 @@ document.addEventListener('keydown', e=>{
   if(e.target !== document.body && e.target.tagName!=='BODY') return;
   if(e.ctrlKey||e.metaKey||e.altKey) return;
   if(testFinished) return;
-  if(e.key==='Tab') return;
-  // 即撳即 focus：輸入法（IME）需要真正輸入框先行到組字流程，
-  // 唔係倉頡碼字母會被當普通英文鍵直接入字
-  if(!e.isComposing && e.key.length === 1){
+  // 即撳即 focus：輸入法（IME）需要真正輸入框先行到組字流程
+  if(!e.isComposing && (e.key.length === 1 || e.key === 'Tab' || e.key === 'Enter')){
     hiddenInput.focus();
+  }
+  if(e.key === 'Tab' || e.key === 'Enter'){
+    e.preventDefault();                  // 考試格式：Tab 段首／Enter 段尾（兩條路徑統一）
+    if(e.key === 'Tab') typeChar('\t'); else typeChar('\n');
+    return;
   }
   handleKey(e);
 });
