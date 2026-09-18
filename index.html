@@ -77,7 +77,7 @@
   }
   .type-box.focus{border-color:var(--accent);}
   .type-area{
-    position:relative; max-height:9.6em; overflow:hidden;
+    position:relative; max-height:14.2em; overflow:hidden;
   }
   .type-line{
     font-family:var(--mono); font-size:1.34rem; line-height:2.3; letter-spacing:.4px;
@@ -322,10 +322,12 @@
 <!-- Typing area -->
 <div class="type-box" id="typeBox">
   <div class="type-area">
+    <div class="type-line ctx" id="prev2Line"></div>
     <div class="type-line ctx" id="prevLine"></div>
     <div class="type-line target" id="targetLine"></div>
     <div class="type-line typed" id="typedLine"></div>
     <div class="type-line ctx" id="nextLine"></div>
+    <div class="type-line ctx" id="next2Line"></div>
   </div>
   <input type="text" id="hiddenInput" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
          style="position:absolute;opacity:0;pointer-events:none;left:0;top:0;width:1px;height:1px;">
@@ -741,8 +743,10 @@ function updateCtxColors(el, L){
 }
 function renderCurrentLine(){
   const L = lines[curLine];
-  renderCtxLine(document.getElementById('prevLine'), lines[curLine-1], 'prev');
-  renderCtxLine(document.getElementById('nextLine'), lines[curLine+1], 'next');
+  renderCtxLine(document.getElementById('prev2Line'), lines[curLine-2], 'prev');
+  renderCtxLine(document.getElementById('prevLine'),  lines[curLine-1], 'prev');
+  renderCtxLine(document.getElementById('nextLine'),  lines[curLine+1], 'next');
+  renderCtxLine(document.getElementById('next2Line'), lines[curLine+2], 'next');
   targetLine.innerHTML = '';
   typedLine.innerHTML = '';
   const tFrag = document.createDocumentFragment();
@@ -789,7 +793,10 @@ function updateCharStates(){
 
     if(g < typed.length){
       shadow[i].classList.remove('pending');
-      shadow[i].textContent = displayChar(typed[g]);
+      // 打錯喺 Tab／Enter 位：佔位跟目標闊度（打錯字符唔會令兩行錯位，
+      // 錯誤狀態用紅色標示）；一般字符打錯照顯示錯字符（同闊冇影響）
+      const wrongAtSpecial = typed[g] !== fullText[g] && (fullText[g] === '\t' || fullText[g] === '\n');
+      shadow[i].textContent = wrongAtSpecial ? displayChar(fullText[g]) : displayChar(typed[g]);
       if(typed[g] === fullText[g]){
         shadow[i].classList.add('correct');
         target[i].style.color = '';
@@ -805,9 +812,11 @@ function updateCharStates(){
       shadow[i].classList.add('has-cursor');
     }
   }
-  // 上一行（前後文）着色同步
-  const prevL = lines[curLine-1];
-  if(prevL) updateCtxColors(document.getElementById('prevLine'), prevL);
+  // 前文兩行着色同步
+  const prevL1 = lines[curLine-1];
+  if(prevL1) updateCtxColors(document.getElementById('prevLine'), prevL1);
+  const prevL2 = lines[curLine-2];
+  if(prevL2) updateCtxColors(document.getElementById('prev2Line'), prevL2);
 
   updateProgressStat();
   updateMilestones();
