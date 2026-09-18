@@ -754,7 +754,7 @@ function renderCurrentLine(){
     tFrag.appendChild(tSpan);
     const ySpan = document.createElement('span');
     ySpan.className = 'char pending';
-    ySpan.textContent = '\u00A0';
+    ySpan.textContent = displayChar(L.text[i]);   // 佔位同目標同闊（tab=4格、\n=↵），兩行永遠對齊
     yFrag.appendChild(ySpan);
   }
   targetLine.appendChild(tFrag);
@@ -789,7 +789,7 @@ function updateCharStates(){
 
     if(g < typed.length){
       shadow[i].classList.remove('pending');
-      shadow[i].textContent = typed[g]===' ' ? '\u00A0' : typed[g];
+      shadow[i].textContent = displayChar(typed[g]);
       if(typed[g] === fullText[g]){
         shadow[i].classList.add('correct');
         target[i].style.color = '';
@@ -801,7 +801,7 @@ function updateCharStates(){
     } else if(g === typed.length){
       target[i].classList.add('current');
       shadow[i].classList.remove('pending');
-      shadow[i].textContent = '\u00A0';
+      shadow[i].textContent = displayChar(fullText[g]);   // cursor 佔位同闊
       shadow[i].classList.add('has-cursor');
     }
   }
