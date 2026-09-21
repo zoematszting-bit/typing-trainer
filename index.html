@@ -742,7 +742,14 @@ function updateCtxColors(el, L){
   for(let j=0;j<spans.length;j++){
     const g = L.start + j;
     let cls = 'char';
-    if(g < typed.length) cls += (typed[g] === fullText[g]) ? ' correct' : ' incorrect';
+    if(g < typed.length){
+      cls += (typed[g] === fullText[g]) ? ' correct' : ' incorrect';
+      // 錯字顯示規則統一：一般位顯示錯字符；Tab/Enter 位顯示目標字符佔位
+      const wrong = typed[g] !== fullText[g];
+      const wrongAtSpecial = wrong && (fullText[g] === '\t' || fullText[g] === '\n');
+      spans[j].textContent = wrong ? (wrongAtSpecial ? displayChar(fullText[g]) : displayChar(typed[g]))
+                                   : displayChar(fullText[g]);
+    }
     if(spans[j].className !== cls) spans[j].className = cls;
   }
 }
@@ -797,10 +804,13 @@ function updateCharStates(){
     shadow[i].className = 'char pending';
 
     if(g < typed.length){
-      // 跟打行：打啱淨係變綠（顯示原文字符）；
-      // 打錯顯示打咗嘅錯字符＋紅（Tab/Enter 位顯示目標字符佔位，唔破壞段落顯示）
+      // 跟打行：打啱顯示原文字符＋綠；打錯顯示錯字符＋紅
+      // （Tab/Enter 位打錯顯示目標字符佔位，唔破壞段落顯示）
+      // 每次都 rewrite textContent：確保 backspace 由錯返啱／cursor 移返嗰陣
+      // 唔會殘留舊錯字（兩行文字永遠對得上）
       shadow[i].classList.remove('pending');
       if(typed[g] === fullText[g]){
+        shadow[i].textContent = displayChar(fullText[g]);
         shadow[i].classList.add('correct');
       } else {
         shadow[i].classList.add('incorrect');
@@ -811,6 +821,7 @@ function updateCharStates(){
     } else if(g === typed.length){
       target[i].classList.add('current');   // 原文行：金色提示打緊邊個字
       shadow[i].classList.remove('pending');
+      shadow[i].textContent = displayChar(fullText[g]);  // cursor 位確保返目標字符
       shadow[i].classList.add('has-cursor'); // 跟打行：閃爍遊標線
     }
     // g > typed.length：跟打行 pending 淡灰顯示原文（一開始就見到成行字）
