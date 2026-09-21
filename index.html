@@ -77,10 +77,8 @@
   }
   .type-box.focus{border-color:var(--accent);}
   .type-area{
-    position:relative; max-height:12.1em; overflow:hidden;
+    position:relative; max-height:14.2em; overflow:hidden;
   }
-  /* 單行一體式：打字行隱藏（打字效果直接喺原文行顯示） */
-  .type-line.typed{display:none;}
   .type-line{
     font-family:var(--mono); font-size:1.34rem; line-height:2.3; letter-spacing:.4px;
     color:var(--muted); user-select:none; word-break:break-all; white-space:pre-wrap;
@@ -792,25 +790,27 @@ function updateCharStates(){
   }
   const L = lines[curLine];
   const target = targetLine.children;
+  const shadow = typedLine.children;
   for(let i=0;i<target.length;i++){
     const g = L.start + i;  // 呢個字符喺全文嘅 index
     target[i].className = 'char';
+    shadow[i].className = 'char pending';
 
     if(g < typed.length){
-      // 單行一體式：打啱變綠、打錯變紅（顯示打咗嘅字符）
-      // 打錯喺 Tab／Enter 位：顯示目標字符但標紅（佔位正確唔影響閱讀）
-      const wrongAtSpecial = typed[g] !== fullText[g] && (fullText[g] === '\t' || fullText[g] === '\n');
-      target[i].textContent = wrongAtSpecial ? displayChar(fullText[g]) : displayChar(typed[g]);
+      // 跟打行：顯示嘅永遠係原文字符（唔會彈出打嘅字）——淨係變色
+      shadow[i].classList.remove('pending');
       if(typed[g] === fullText[g]){
-        target[i].classList.add('correct');
+        shadow[i].classList.add('correct');
       } else {
-        target[i].classList.add('incorrect');
-        if(fullText[g]===' ') target[i].classList.add('space-incorrect');
+        shadow[i].classList.add('incorrect');
+        if(fullText[g]===' ') shadow[i].classList.add('space-incorrect');
       }
     } else if(g === typed.length){
-      target[i].classList.add('current');   // 遊標：accent 色＋底線
+      target[i].classList.add('current');   // 原文行：金色提示打緊邊個字
+      shadow[i].classList.remove('pending');
+      shadow[i].classList.add('has-cursor'); // 跟打行：閃爍遊標線
     }
-    // g > typed.length：未打——照原文 muted 顯示
+    // g > typed.length：跟打行 pending 淡灰顯示原文（一開始就見到成行字）
   }
   // 前文兩行着色同步
   const prevL1 = lines[curLine-1];
