@@ -797,12 +797,15 @@ function updateCharStates(){
     shadow[i].className = 'char pending';
 
     if(g < typed.length){
-      // 跟打行：顯示嘅永遠係原文字符（唔會彈出打嘅字）——淨係變色
+      // 跟打行：打啱淨係變綠（顯示原文字符）；
+      // 打錯顯示打咗嘅錯字符＋紅（Tab/Enter 位顯示目標字符佔位，唔破壞段落顯示）
       shadow[i].classList.remove('pending');
       if(typed[g] === fullText[g]){
         shadow[i].classList.add('correct');
       } else {
         shadow[i].classList.add('incorrect');
+        const wrongAtSpecial = fullText[g] === '\t' || fullText[g] === '\n';
+        shadow[i].textContent = wrongAtSpecial ? displayChar(fullText[g]) : displayChar(typed[g]);
         if(fullText[g]===' ') shadow[i].classList.add('space-incorrect');
       }
     } else if(g === typed.length){
