@@ -77,8 +77,10 @@
   }
   .type-box.focus{border-color:var(--accent);}
   .type-area{
-    position:relative; max-height:14.2em; overflow:hidden;
+    position:relative; max-height:12.1em; overflow:hidden;
   }
+  /* 單行一體式：打字行隱藏（打字效果直接喺原文行顯示） */
+  .type-line.typed{display:none;}
   .type-line{
     font-family:var(--mono); font-size:1.34rem; line-height:2.3; letter-spacing:.4px;
     color:var(--muted); user-select:none; word-break:break-all; white-space:pre-wrap;
@@ -100,7 +102,11 @@
   .type-line .char.space-incorrect{background:rgba(248,113,113,.3);}
   .type-line .char.current{
     color:var(--accent2); border-bottom:2px solid var(--accent2);
+    background:rgba(255,179,71,.08);
   }
+  /* 盲打：主行打字結果唔顯色（淨係原文 muted） */
+  .type-area.blind .type-line.target .char.correct{color:var(--muted); background:none;}
+  .type-area.blind .type-line.target .char.incorrect{color:var(--muted); background:none;}
   .type-line .char.pending{color:rgba(154,160,166,.4);}  /* shadow line: untyped chars shown faint */
   .type-line .char.has-cursor{position:relative;}
   .type-line .char.has-cursor::before{
@@ -489,6 +495,7 @@ document.getElementById('blindToggle').addEventListener('click', function(){
   blindMode = !blindMode;
   this.classList.toggle('on', blindMode);
   typedLine.classList.toggle('blind', blindMode);
+  document.querySelector('.type-area').classList.toggle('blind', blindMode);
   updateCharStates();                    // sync 前一行嘅 blind 着色
 });
 
@@ -785,32 +792,25 @@ function updateCharStates(){
   }
   const L = lines[curLine];
   const target = targetLine.children;
-  const shadow = typedLine.children;
   for(let i=0;i<target.length;i++){
     const g = L.start + i;  // 呢個字符喺全文嘅 index
     target[i].className = 'char';
-    shadow[i].className = 'char pending';
 
     if(g < typed.length){
-      shadow[i].classList.remove('pending');
-      // 打錯喺 Tab／Enter 位：佔位跟目標闊度（打錯字符唔會令兩行錯位，
-      // 錯誤狀態用紅色標示）；一般字符打錯照顯示錯字符（同闊冇影響）
+      // 單行一體式：打啱變綠、打錯變紅（顯示打咗嘅字符）
+      // 打錯喺 Tab／Enter 位：顯示目標字符但標紅（佔位正確唔影響閱讀）
       const wrongAtSpecial = typed[g] !== fullText[g] && (fullText[g] === '\t' || fullText[g] === '\n');
-      shadow[i].textContent = wrongAtSpecial ? displayChar(fullText[g]) : displayChar(typed[g]);
+      target[i].textContent = wrongAtSpecial ? displayChar(fullText[g]) : displayChar(typed[g]);
       if(typed[g] === fullText[g]){
-        shadow[i].classList.add('correct');
-        target[i].style.color = '';
+        target[i].classList.add('correct');
       } else {
-        shadow[i].classList.add('incorrect');
-        if(fullText[g]===' ') shadow[i].classList.add('space-incorrect');
-        target[i].style.color = 'var(--red)';
+        target[i].classList.add('incorrect');
+        if(fullText[g]===' ') target[i].classList.add('space-incorrect');
       }
     } else if(g === typed.length){
-      target[i].classList.add('current');
-      shadow[i].classList.remove('pending');
-      shadow[i].textContent = displayChar(fullText[g]);   // cursor 佔位同闊
-      shadow[i].classList.add('has-cursor');
+      target[i].classList.add('current');   // 遊標：accent 色＋底線
     }
+    // g > typed.length：未打——照原文 muted 顯示
   }
   // 前文兩行着色同步
   const prevL1 = lines[curLine-1];
