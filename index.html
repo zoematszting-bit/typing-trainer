@@ -633,7 +633,7 @@ function updateFtStats(){
     done = countWords(typed);
   }
   document.getElementById('ftStats').textContent =
-    lines.length + ' 行 · ' + total + ' 字 ｜ 已打 ' + done;
+    '全文共 ' + lines.length + ' 行 · ' + total + ' 字 ｜ 已打 ' + done;
 }
 function updateFullTextView(){
   if(!ftOpen) return;
