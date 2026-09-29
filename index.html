@@ -409,7 +409,7 @@ const CATS = {
   en: [ {id:'government', label:'🏛️ Gov Docs'}, {id:'legal', label:'📜 Legal'},
         {id:'general', label:'📰 General'}, {id:'symbols', label:'🔣 Symbols'} ],
   zh: [ {id:'gov', label:'🏛️ 政府公文'}, {id:'notice', label:'📢 通告啟事'},
-        {id:'minutes', label:'📝 會議記錄'} ],
+        {id:'daily', label:'🌱 日常文章'}, {id:'minutes', label:'📝 會議記錄'} ],
 };
 let category = 'government';
 let blindMode = false;      // blind mode: hide errors while typing
@@ -1131,7 +1131,7 @@ function renderHistory(){
       else if(diff<-1) trend = `<span class="hist-trend down">↓${Math.abs(diff)}</span>`;
       else trend = `<span class="hist-trend flat">→</span>`;
     }
-    const catIcon = {government:'🏛️',legal:'📜',general:'📰',symbols:'🔣',gov:'🏛️',notice:'📢',minutes:'📝'}[r.cat]||'';
+    const catIcon = {government:'🏛️',legal:'📜',general:'📰',symbols:'🔣',gov:'🏛️',notice:'📢',daily:'🌱',minutes:'📝'}[r.cat]||'';
     const d = new Date(r.date);
     const ds = d.toLocaleDateString('en-GB',{month:'short',day:'numeric'})+' '+d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
     return `<div class="hist-item">
@@ -1230,7 +1230,9 @@ hiddenInput.addEventListener('paste', e => {
 });
 hiddenInput.addEventListener('copy', e => e.preventDefault());
 hiddenInput.addEventListener('cut', e => e.preventDefault());
-hiddenInput.addEventListener('compositionstart', () => { ttComposing = true; });
+let ttCompAt = 0;                        // 上次組字活動時間（start/update）
+hiddenInput.addEventListener('compositionstart', () => { ttComposing = true; ttCompAt = Date.now(); });
+hiddenInput.addEventListener('compositionupdate', () => { ttCompAt = Date.now(); });
 hiddenInput.addEventListener('compositionend', () => {
   ttComposing = false;
   handleConfirmedInput();                // Safari 嘅確認時機
@@ -1239,10 +1241,12 @@ hiddenInput.addEventListener('keydown', e=>{
   if(testFinished) return;
   // 淨係信自家嘅 ttComposing flag：Safari 喺 compositionend 之後嘅 keydown
   // isComposing 有機會殘留 true，令 Backspace 被擺空氣（刪唔到中文字）
-  if(ttComposing && hiddenInput.value === ''){
-    // 防禦：旗標話組字中，但 buffer 已空＝compositionend 漏發，
-    // 旗標卡住會令 Backspace 永久失效——安全重置
+  if(ttComposing && (hiddenInput.value === '' || Date.now() - ttCompAt > 1000)){
+    // 防禦（時間戳版）：compositionend 漏發時旗標會卡住——
+    // buffer 空，或者超過 1 秒完全冇組字活動（真組字會不停 update），
+    // 兩者都＝IME 已死但旗標未清，安全重置，否則 Backspace 永久失效
     ttComposing = false;
+    hiddenInput.value = '';
   }
   if(ttComposing) return;                // 真組字期間唔干預（揀字／刪碼歸 IME 管）
   if(e.key === 'Backspace'){
