@@ -409,7 +409,8 @@ const CATS = {
   en: [ {id:'government', label:'🏛️ Gov Docs'}, {id:'legal', label:'📜 Legal'},
         {id:'general', label:'📰 General'}, {id:'symbols', label:'🔣 Symbols'} ],
   zh: [ {id:'gov', label:'🏛️ 政府公文'}, {id:'notice', label:'📢 通告啟事'},
-        {id:'daily', label:'🌱 日常文章'}, {id:'minutes', label:'📝 會議記錄'} ],
+        {id:'daily', label:'🌱 日常文章'}, {id:'edu', label:'📚 教育文章'},
+        {id:'minutes', label:'📝 會議記錄'} ],
 };
 let category = 'government';
 let blindMode = false;      // blind mode: hide errors while typing
@@ -1131,7 +1132,7 @@ function renderHistory(){
       else if(diff<-1) trend = `<span class="hist-trend down">↓${Math.abs(diff)}</span>`;
       else trend = `<span class="hist-trend flat">→</span>`;
     }
-    const catIcon = {government:'🏛️',legal:'📜',general:'📰',symbols:'🔣',gov:'🏛️',notice:'📢',daily:'🌱',minutes:'📝'}[r.cat]||'';
+    const catIcon = {government:'🏛️',legal:'📜',general:'📰',symbols:'🔣',gov:'🏛️',notice:'📢',daily:'🌱',edu:'📚',minutes:'📝'}[r.cat]||'';
     const d = new Date(r.date);
     const ds = d.toLocaleDateString('en-GB',{month:'short',day:'numeric'})+' '+d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
     return `<div class="hist-item">
