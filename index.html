@@ -261,6 +261,106 @@
   }
   .weak-note{color:var(--muted); font-size:.8rem; margin-top:10px;}
 
+  /* ===== 模式選擇：CSB 一鍵模擬考按鈕 ===== */
+  .btn-csb{
+    padding:7px 16px; border-radius:9px; border:1px solid var(--accent);
+    background:rgba(255,107,53,.12); color:var(--accent2); cursor:pointer;
+    font-size:.82rem; font-weight:600; transition:all .15s; margin-left:4px;
+  }
+  .btn-csb:hover{background:var(--accent); color:#fff;}
+
+  /* ===== 同步狀態點（工作站） ===== */
+  .sync-chip{
+    display:inline-flex; align-items:center; gap:5px; margin-left:10px;
+    font-size:.68rem; color:var(--green); opacity:.85; font-family:var(--mono);
+  }
+  .sync-chip.fail{color:var(--muted); opacity:.5;}
+
+  /* ===== 紙本模式 ===== */
+  .paper-panel{
+    max-width:1040px; width:100%; background:#f5f1e6; border:1px solid #d8d2c0;
+    border-radius:12px; margin-bottom:14px; color:#2b2b26;
+    box-shadow:0 2px 10px rgba(0,0,0,.25);
+  }
+  .paper-head{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding:9px 16px; font-size:.72rem; color:#6b6552; flex-wrap:wrap;
+    border-bottom:1px dashed #d8d2c0;
+  }
+  .paper-true{display:flex; align-items:center; gap:5px; cursor:pointer; user-select:none;}
+  .paper-print{
+    padding:4px 12px; border-radius:7px; border:1px solid #b8b09a; background:#efe9da;
+    color:#4a4433; cursor:pointer; font-size:.72rem;
+  }
+  .paper-print:hover{background:#e2dbc8;}
+  .paper-body{
+    padding:20px 28px; max-height:300px; overflow-y:auto;
+    font-family:Georgia,'Times New Roman',serif; font-size:1.02rem; line-height:1.95;
+    white-space:pre-wrap; word-break:break-word;
+  }
+  .paper-body .pc{color:#1d1d18;}
+  .paper-body .pc.ok{color:#1a7f4b;}
+  .paper-body .pc.bad{color:#c0392b; background:rgba(192,57,43,.12); border-radius:2px;}
+  .paper-empty{color:#8a8471; font-style:italic;}
+  body.paper-on .type-area{display:flex; flex-direction:column; justify-content:flex-end;}
+  body.paper-on .type-line.ctx,
+  body.paper-on .type-line.target{display:none;}
+  body.paper-on .type-line.typed{color:var(--txt);}
+  body.paper-on #ftToggle{display:none;}
+
+  /* ===== 閃卡連打模式 ===== */
+  .flash-box{
+    max-width:760px; width:100%; background:var(--card); border:1px solid var(--border);
+    border-radius:16px; padding:30px 34px 26px; text-align:center; position:relative;
+  }
+  .flash-meta{
+    display:flex; justify-content:center; gap:22px; font-size:.75rem;
+    color:var(--muted); margin-bottom:22px; flex-wrap:wrap; font-family:var(--mono);
+  }
+  .flash-meta b{color:var(--accent2); font-size:.9rem;}
+  .flash-stage{min-height:120px; display:flex; flex-direction:column; justify-content:center; align-items:center;}
+  .flash-chunk{
+    font-family:var(--mono); font-size:2rem; font-weight:600; letter-spacing:.5px;
+    color:var(--txt); word-break:break-word; max-width:100%;
+  }
+  .flash-chunk.hidden-state{color:var(--border); font-size:1.4rem;}
+  .flash-chunk.ok{color:var(--green);}
+  .flash-chunk.bad{color:var(--red);}
+  .flash-chunk .fix{color:var(--green); font-size:1.1rem; display:block; margin-top:6px;}
+  .flash-timerbar{
+    width:100%; height:4px; border-radius:2px; background:var(--border);
+    margin-top:18px; overflow:hidden; position:relative;
+  }
+  .flash-timerbar i{
+    position:absolute; left:0; top:0; height:100%; width:100%;
+    background:var(--accent); transform-origin:left;
+  }
+  .flash-typed{
+    font-family:var(--mono); font-size:1.5rem; min-height:2.2em; margin-top:20px;
+    color:var(--accent2); word-break:break-all; text-align:center;
+  }
+  .flash-typed .caret{
+    display:inline-block; width:2px; height:1.15em; background:var(--accent2);
+    vertical-align:text-bottom; animation:blink 1s infinite; margin-left:1px;
+  }
+  .flash-hint{color:var(--muted); font-size:.78rem; margin-top:14px;}
+  body.flash-on .type-box,
+  body.flash-on .milestones,
+  body.flash-on .live-stats{display:none;}
+  body.flash-on #ftPanel{display:none!important;}
+
+  /* ===== 打印（真·紙本） ===== */
+  #printSheet{display:none;}
+  @media print{
+    body.print-only > *:not(#printSheet){display:none!important;}
+    body.print-only #printSheet{display:block;}
+    #printSheet{
+      font-family:Georgia,'Times New Roman',serif; color:#000; font-size:12.5pt;
+      line-height:2.0; white-space:pre-wrap; padding:8mm 2mm;
+    }
+    #printSheet .ps-title{font-weight:700; text-align:center; margin-bottom:14px; font-size:11pt;}
+  }
+
   @media(max-width:600px){
     .type-line{font-size:1.05rem; line-height:2.1;}
     .type-area{max-height:8.8em;}
@@ -276,9 +376,18 @@
 
 <h1>⌨️ Typing <span>Trainer</span></h1>
 <p class="subtitle">Ad-free typing practice for PSII — aim for 50+ WPM</p>
+<span class="sync-chip" id="syncChip" style="display:none"></span>
 
 <!-- Setup -->
 <div class="setup">
+  <div class="setup-group">
+    <span class="setup-label">練習模式</span>
+    <div class="opt-row" id="modeOpts">
+      <span class="opt active" data-mode="normal">✍️ 正常</span>
+      <span class="opt" data-mode="paper">📄 紙本</span>
+      <span class="opt" data-mode="flash">⚡ 閃卡連打</span>
+    </div>
+  </div>
   <div class="setup-group">
     <span class="setup-label">Language</span>
     <div class="opt-row" id="langOpts">
@@ -321,6 +430,19 @@
   <span id="ftToggleLabel">📄 全文 <small style="color:var(--muted)">(scrollable full text)</small></span>
 </div>
 
+<!-- CSB one-click mock exam -->
+<button class="btn-csb" id="csbBtn" title="5分鐘·紙本·隱藏即時數據·CSB淨速評分">🎯 一鍵模擬考（5 min）</button>
+
+<!-- 紙本原文面板（紙本模式专用） -->
+<div class="paper-panel" id="paperPanel" style="display:none">
+  <div class="paper-head">
+    <span id="paperHeadLabel">📄 紙本原文 — 眼望呢度，手喺下面打；唔會逐字變色</span>
+    <label class="paper-true"><input type="checkbox" id="paperHidden"> 真·紙本（收起原文，用打印本）</label>
+    <button class="paper-print" id="printBtn">🖨️ 打印此文</button>
+  </div>
+  <div class="paper-body" id="paperBody"></div>
+</div>
+
 <!-- Live stats -->
 <div class="live-stats" id="liveStats">
   <div class="live-stat" id="statWpm"><div class="num" id="liveWpm">0</div><div class="lbl" id="lblWpm">WPM</div></div>
@@ -342,6 +464,23 @@
   <input type="text" id="hiddenInput" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
          style="position:absolute;opacity:0;pointer-events:none;left:0;top:0;width:1px;height:1px;">
   <div class="focus-hint" id="focusHint">Click here or press any key to start ⌨️</div>
+</div>
+
+<!-- 閃卡連打（chunk 訓練） -->
+<div class="flash-box" id="flashBox" style="display:none">
+  <div class="flash-meta">
+    <span>關卡 <b id="flashLevel">1</b>/7</span>
+    <span>第 <b id="flashRound">0</b>/30 輪</span>
+    <span>連對 <b id="flashStreak">0</b> ✓</span>
+    <span>今節正確率 <b id="flashAcc">—</b></span>
+    <span>最高 <b id="flashBest">Lv1</b></span>
+  </div>
+  <div class="flash-stage">
+    <div class="flash-chunk" id="flashChunk">⚡ 撳任何字鍵開始</div>
+    <div class="flash-timerbar" id="flashTimerBar"><i id="flashTimerFill"></i></div>
+  </div>
+  <div class="flash-typed" id="flashTyped"><span class="caret"></span></div>
+  <div class="flash-hint" id="flashHint">chunk 閃現 → 消失 → 憑記憶打出 → Enter 提交 · 連對3次升級，連錯2次降級</div>
 </div>
 
 <!-- Milestone lamps：每 50 字著一盞（200=🌸），顏色反映即時速度 -->
@@ -368,6 +507,7 @@
   </div>
   <div class="result-grid">
     <div class="result-card"><div class="val" id="finalAcc">0%</div><div class="lbl" id="lblAcc">Accuracy</div></div>
+    <div class="result-card good"><div class="val" id="finalNet">0</div><div class="lbl" id="lblNet">淨速 Net WPM</div></div>
     <div class="result-card"><div class="val" id="finalRaw">0</div><div class="lbl" id="lblRaw">Raw WPM</div></div>
     <div class="result-card warn"><div class="val" id="finalErr">0</div><div class="lbl" id="lblErr">Errors</div></div>
     <div class="result-card"><div class="val" id="finalChars">0</div><div class="lbl" id="lblChars">Characters</div></div>
@@ -400,6 +540,9 @@
   </div>
 </div>
 
+<!-- 打印專用層（真·紙本用） -->
+<div id="printSheet"></div>
+
 <script src="texts.js"></script>
 <script>
 /* ========== State ========== */
@@ -414,6 +557,8 @@ const CATS = {
 };
 let category = 'government';
 let blindMode = false;      // blind mode: hide errors while typing
+let mode = 'normal';        // 'normal' | 'paper' | 'flash'（練習模式）
+let csbRun = false;         // 一鍵模擬考旗標（finish 時記 mode:'csb'）
 let fullText = '';          // the passage to type
 let typed = '';             // what user has typed so far
 let startTime = null;
@@ -518,6 +663,79 @@ document.getElementById('blindToggle').addEventListener('click', function(){
   document.querySelector('.type-area').classList.toggle('blind', blindMode);
   updateCharStates();                    // sync 前一行嘅 blind 着色
 });
+
+/* ========== 練習模式切換（正常／紙本／閃卡） ========== */
+function paperOn(){ return mode === 'paper'; }
+function applyMode(m){
+  if(m !== 'normal' && m !== 'paper' && m !== 'flash') return;
+  if(m === 'flash' && lang === 'zh') switchLang('en');   // 閃卡暫只支援英文
+  mode = m;
+  csbRun = false;
+  document.querySelectorAll('#modeOpts .opt').forEach(x => x.classList.toggle('active', x.dataset.mode === m));
+  document.body.classList.toggle('paper-on', m === 'paper');
+  document.body.classList.toggle('flash-on', m === 'flash');
+  document.getElementById('paperPanel').style.display = (m === 'paper') ? 'block' : 'none';
+  document.getElementById('flashBox').style.display = (m === 'flash') ? 'block' : 'none';
+  document.getElementById('paperHidden').checked = false;   // 每次入紙本重置「真·紙本」
+  if(m === 'flash'){
+    flashTeardown();
+    resetTest(true);          // 閃卡唔食正常文檔，但 reset 保持狀態乾淨
+    flashIdle();
+  } else {
+    flashTeardown();
+    resetTest(true);
+    if(m === 'paper') renderPaper(false);
+  }
+}
+document.getElementById('modeOpts').addEventListener('click', e => {
+  const o = e.target.closest('.opt'); if(!o) return;
+  applyMode(o.dataset.mode);
+  hiddenInput.focus();
+});
+
+/* 紙本面板渲染：原文靜態顯示（reveal=true 時逐字標色對錯——打完揭盅用） */
+function renderPaper(reveal){
+  const body = document.getElementById('paperBody');
+  const hidden = document.getElementById('paperHidden').checked;
+  if(hidden && !reveal){
+    body.innerHTML = '<span class="paper-empty">📃 真·紙本模式——原文已收起。請用打印咗嘅紙對住鍵盤打，眼望紙，唔好望屏幕。</span>';
+    document.getElementById('paperHeadLabel').textContent = '📄 真·紙本 — 睇手上打印本打字';
+    return;
+  }
+  document.getElementById('paperHeadLabel').textContent = reveal
+    ? '📄 揭盅 — 綠＝啱、紅＝錯'
+    : '📄 紙本原文 — 眼望呢度，手喺下面打；唔會逐字變色';
+  let html = '';
+  for(let i = 0; i < fullText.length; i++){
+    const c = fullText[i];
+    let cls = 'pc', txt;
+    if(c === '\t'){ txt = '\u00A0\u00A0\u00A0\u00A0'; }
+    else if(c === '\n'){ txt = '\n'; }
+    else { txt = c === ' ' ? '\u00A0' : c; }
+    if(reveal && i < typed.length){
+      if(typed[i] === fullText[i]) cls += ' ok';
+      else cls += ' bad';
+    }
+    html += '<span class="' + cls + '">' + txt + '</span>';
+  }
+  body.innerHTML = html;
+  if(reveal) body.scrollTop = body.scrollHeight;
+}
+document.getElementById('paperHidden').addEventListener('change', () => renderPaper(false));
+
+/* 打印原文（真·紙本練習配套） */
+function printPassage(){
+  const sheet = document.getElementById('printSheet');
+  const paras = fullText.split('\n').map(p => p.replace(/^\t/, '    ')).join('\n');
+  sheet.innerHTML = '<div class="ps-title">Typing Practice — Paper Copy（打字練習紙本）</div>' + paras;
+  document.body.classList.add('print-only');
+  const done = () => { document.body.classList.remove('print-only'); window.removeEventListener('afterprint', done); };
+  window.addEventListener('afterprint', done);
+  setTimeout(done, 60000);            // 後備清 class（撳咗取消都唔會殘留）
+  if(typeof window.print === 'function') window.print();
+  else done();
+}
+document.getElementById('printBtn').addEventListener('click', printPassage);
 
 /* ===== 進度統計（當前篇單位：英文 words／中文字） ===== */
 function countWords(s){
@@ -815,8 +1033,42 @@ function renderCurrentLine(){
   typedLine.appendChild(yFrag);
 }
 
+/* 紙本模式打字區：淨係顯示打咗嘅字（增量 append，backspace 全重建） */
+let paperTypedLen = -1;
+function paperDisplayChar(c){
+  if(c === '\t') return '\u00A0\u00A0\u00A0\u00A0';
+  if(c === '\n') return '\n';            // 真換行（Word 式段落）
+  return c;
+}
+function renderPaperTyped(){
+  if(typed.length > 0 && typed.length === paperTypedLen + 1){
+    const s = document.createElement('span');
+    s.className = 'char';
+    s.textContent = paperDisplayChar(typed[typed.length - 1]);
+    typedLine.appendChild(s);
+  } else {
+    typedLine.innerHTML = '';
+    const frag = document.createDocumentFragment();
+    for(let i = 0; i < typed.length; i++){
+      const s = document.createElement('span');
+      s.className = 'char';
+      s.textContent = paperDisplayChar(typed[i]);
+      frag.appendChild(s);
+    }
+    typedLine.appendChild(frag);
+  }
+  paperTypedLen = typed.length;
+}
+
 /* Update colours based on typed string（只顯示當前行） */
 function updateCharStates(){
+  if(paperOn()){
+    // 紙本模式：冇逐字對錯提示、冇原文行——淨係一個 Word 式打字窗口
+    renderPaperTyped();
+    updateProgressStat();
+    updateMilestones();
+    return;
+  }
   // 自動吞跨行空格：打完一行最後一個字符，即刻跳落下一行
   while(isLineBoundary(typed.length)){
     typed += ' ';
@@ -913,6 +1165,7 @@ function startTest(){
 
 /* ========== 輸入核心（typeChar / doBackspace）========== */
 function typeChar(ch){
+  if(mode === 'flash'){ flashKey(ch); return; }
   if(testFinished) return;
   // 中文模式：英文字母一律唔入（素材冇字母；見到字母＝倉頡／速成碼洩漏）
   if(lang === 'zh' && /[a-zA-Z]/.test(ch)) return;
@@ -936,6 +1189,7 @@ function typeChar(ch){
         renderText();
         typed = keepTyped;
         updateCharStates();
+        if(paperOn()) renderPaper(false);    // 紙本：新篇原文即刻上「紙」
       } else {
         finishTest();
       }
@@ -944,6 +1198,7 @@ function typeChar(ch){
 }
 
 function doBackspace(){
+  if(mode === 'flash'){ flashBackspace(); return; }
   if(testFinished) return;
   if(typed.length>0){
     typed = typed.slice(0,-1);
@@ -993,6 +1248,28 @@ function countErrors(){
   }
   return err;
 }
+function countCorrect(){
+  let c=0;
+  for(let i=0;i<typed.length;i++){
+    if(typed[i]===fullText[i]) c++;
+  }
+  return c;
+}
+/* 淨速（CSB 式誠實數字）：只計啱嘅字符——英：correct/5 每分鐘；中：correct 每分鐘 */
+function calcNetWPM(correctChars, seconds){
+  if(seconds <= 0) return 0;
+  if(lang === 'zh') return Math.round(correctChars / (seconds/60));
+  return Math.round((correctChars/5) / (seconds/60));
+}
+/* 今節最常錯字符 top5（寫入歷史，週復盤聚合用） */
+function topWeakChars(n){
+  return Object.keys(charErrors)
+    .map(ch => ({ch, err:charErrors[ch], att:charAttempts[ch]||0}))
+    .filter(e => e.att >= 2 && e.ch.trim() !== '')
+    .sort((a,b) => b.err - a.err)
+    .slice(0, n || 5)
+    .map(e => ({ch:e.ch, err:e.err}));
+}
 
 /* ========== Finish ========== */
 function finishTest(){
@@ -1009,9 +1286,12 @@ function finishTest(){
   const acc = calcAccuracy();
   const rawWpm = Math.round((typed.length/5)/(elapsed/60));
   const errors = countErrors();
+  const netWpm = calcNetWPM(countCorrect(), elapsed);
+  const modeTag = csbRun ? 'csb' : (mode === 'paper' ? 'paper' : 'normal');
 
   document.getElementById('finalWpm').innerHTML = finalWpm + '<small> WPM</small>';
   document.getElementById('finalAcc').textContent = acc+'%';
+  document.getElementById('finalNet').textContent = netWpm;
   document.getElementById('finalRaw').textContent = rawWpm;
   document.getElementById('finalErr').textContent = errors;
   document.getElementById('finalChars').textContent =
@@ -1030,13 +1310,27 @@ function finishTest(){
     else if(finalWpm>=30) msg=`📈 Good progress. Aim higher next time.`;
     else msg=`🌱 Keep practicing — speed comes with consistency.`;
   }
+  if(modeTag === 'csb'){
+    msg = `🎯 模擬考 淨速 ${netWpm} wpm — ` +
+      (netWpm>=40 ? 'PSII 40 過線 ✓（下次用更難篇目保持狀態）'
+       : netWpm>=30 ? 'ACO 30 過線，差距係 PSII 40——繼續衝'
+       : `未過線（ACO 30／PSII 40）——閃卡練連打＋慢打練準確`);
+  }
   document.getElementById('resultSub').textContent = msg;
 
   // Chart
   drawChart();
 
-  // Save history
-  saveHistory({wpm:finalWpm, acc, errors, cat:category, dur:duration, date:Date.now()});
+  // 紙本模式：打完揭盅（原文逐字標色對錯）
+  if(paperOn()) renderPaper(true);
+
+  // Save history（v2：mode＋netWpm＋常錯字＋唯一 id）
+  saveHistory({wpm:finalWpm, acc, errors, netWpm, mode:modeTag,
+               weak:topWeakChars(5), cat:category, dur:duration, date:Date.now()});
+  csbRun = false;
+
+  // 完成測試 → 自動同步紀錄入工作站（Mac 本地）
+  try{ setTimeout(ttSync, 1500); }catch(e){}
 
   // 通知同 origin 嘅備考 Dashboard 即時刷新
   try{ new BroadcastChannel('typing_trainer_sync').postMessage('update'); }catch(e){}
@@ -1046,14 +1340,16 @@ function finishTest(){
 
   // Show results
   document.getElementById('results').classList.add('show');
-  document.getElementById('results').scrollIntoView({behavior:'smooth', block:'start'});
+  if(document.getElementById('results').scrollIntoView)
+    document.getElementById('results').scrollIntoView({behavior:'smooth', block:'start'});
   renderHistory();
 }
 
 /* ========== WPM Chart (Canvas) ========== */
 function drawChart(){
   const canvas = document.getElementById('chart');
-  const ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext ? canvas.getContext('2d') : null;
+  if(!ctx) return;                       // 冇 canvas 支援嘅環境（測試殼）直接跳過
   const dpr = window.devicePixelRatio||1;
   const W = canvas.offsetWidth, H = canvas.offsetHeight;
   canvas.width = W*dpr; canvas.height = H*dpr;
@@ -1109,15 +1405,23 @@ function drawChart(){
 
 /* ========== History (localStorage) ========== */
 function histKey(){ return lang === 'zh' ? 'typing_trainer_history_zh' : 'typing_trainer_history'; }
+/* 閃卡紀錄獨立 key（wpm=0 唔會污染 dashboard 打卡圖表） */
+function histKeyFor(rec){
+  if(rec.mode === 'flash') return 'typing_flash_history';
+  return rec.lang === 'zh' ? 'typing_trainer_history_zh' : 'typing_trainer_history';
+}
 function getHistory(){
   try{ return JSON.parse(localStorage.getItem(histKey()))||[]; }catch{ return []; }
 }
 function saveHistory(rec){
-  rec.lang = lang;
-  const hist = getHistory();
+  rec.lang = rec.lang || lang;
+  rec.id = rec.id || ('r' + Date.now().toString(36) + Math.random().toString(36).slice(2,6));
+  const key = histKeyFor(rec);
+  let hist = [];
+  try{ hist = JSON.parse(localStorage.getItem(key)) || []; }catch(e){}
   hist.push(rec);
   if(hist.length>200) hist.shift();
-  localStorage.setItem(histKey(), JSON.stringify(hist));
+  localStorage.setItem(key, JSON.stringify(hist));
 }
 function renderHistory(){
   const hist = getHistory().slice(-10).reverse();
@@ -1133,11 +1437,12 @@ function renderHistory(){
       else trend = `<span class="hist-trend flat">→</span>`;
     }
     const catIcon = {government:'🏛️',legal:'📜',general:'📰',symbols:'🔣',gov:'🏛️',notice:'📢',daily:'🌱',edu:'📚',minutes:'📝'}[r.cat]||'';
+    const modeIcon = {csb:'🎯', paper:'📄', flash:'⚡'}[r.mode]||'✍️';
     const d = new Date(r.date);
     const ds = d.toLocaleDateString('en-GB',{month:'short',day:'numeric'})+' '+d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
     return `<div class="hist-item">
-      <div><span class="hist-wpm">${r.wpm} WPM</span> <span class="hist-acc">${r.acc}%</span> ${trend}</div>
-      <div class="hist-meta">${catIcon} ${r.dur}s · ${ds}</div>
+      <div><span class="hist-wpm">${r.mode === 'flash' ? 'Lv' + (r.flashLevel||1) + ' · ' + (r.acc||0) + '%' : r.wpm + ' WPM'}</span> <span class="hist-acc">${r.acc}%</span> ${modeIcon} ${trend}</div>
+      <div class="hist-meta">${catIcon} ${r.dur ? r.dur + 's · ' : ''}${ds}</div>
     </div>`;
   }).join('');
 }
@@ -1169,6 +1474,207 @@ function renderWeakKeys(){
   + '<p class="weak-note">Redder tiles = higher error rate. Numbers show total errors. Practice these keys!</p>';
 }
 
+/* ========== ⚡ 閃卡連打模式（chunk 訓練：擴大 working memory 緩衝區） ========== */
+const FLASH_ROUNDS = 30;
+const FLASH_LEVELS = [ null,
+  /* L1 */ ['of','to','in','it','is','be','as','at','so','we','he','by','or','on','no','do','if','up','an','my'],
+  /* L2 */ ['that','this','with','have','from','they','been','will','more','when','what','your','which','about','should','would','could','there','their','these'],
+  /* L3 */ ['question','business','government','important','different','something','practice','training','meeting','complete','attention','procedure','department'],
+  /* L4 */ ['of the','in the','to the','and the','on the','for the','it is','there is','will be','as a','in a','to be','at the','with the'],
+  /* L5 */ ['of the government','in the office','at the meeting','for the purpose','on the basis','as soon as','in order to','with regard to','in the event','at the date'],
+  /* L6 */ ['in order to provide','with regard to the','as soon as possible','for the purpose of','in accordance with','pursuant to the order','at the end of the'],
+  /* L7 */ ['please find attached the document','the meeting will be held on monday','this is to certify that the officer','we refer to your letter dated today','the above mentioned requirement is']
+];
+let fState = 'idle';       // idle | show | type | feedback
+let fLevel = 1, fBestLevel = 1, fRound = 0, fStreak = 0, fWrongRow = 0;
+let fCorrect = 0, fTotal = 0, fTyped = '', fTarget = '';
+let fTimer = null, fFeedTimer = null;
+
+/* 閃示時長：350ms 基數＋每字符 80ms（週復盤可調校呢兩個常數） */
+function flashDurationMs(len){ return 350 + 80 * len; }
+function flashPick(){
+  const pool = FLASH_LEVELS[fLevel] || FLASH_LEVELS[1];
+  let c = pool[Math.floor(Math.random() * pool.length)];
+  if(c === fTarget) c = pool[(pool.indexOf(c) + 1) % pool.length];
+  return c;
+}
+function flashClearTimers(){ clearTimeout(fTimer); clearTimeout(fFeedTimer); }
+function flashUpdateMeta(){
+  document.getElementById('flashLevel').textContent = fLevel;
+  document.getElementById('flashRound').textContent = fRound;
+  document.getElementById('flashStreak').textContent = fStreak;
+  document.getElementById('flashAcc').textContent = fTotal ? Math.round(fCorrect/fTotal*100) + '%' : '—';
+  document.getElementById('flashBest').textContent = 'Lv' + fBestLevel;
+}
+function flashIdle(){
+  fState = 'idle'; fRound = 0; fStreak = 0; fWrongRow = 0; fCorrect = 0; fTotal = 0; fTyped = ''; fTarget = '';
+  flashClearTimers();
+  const chunkEl = document.getElementById('flashChunk');
+  chunkEl.className = 'flash-chunk';
+  chunkEl.textContent = '⚡ 撳任何字鍵開始';
+  document.getElementById('flashTyped').innerHTML = '<span class="caret"></span>';
+  document.getElementById('flashHint').textContent = 'chunk 閃現 → 消失 → 憑記憶打出 → Enter 提交 · 連對3次升級，連錯2次降級';
+  flashUpdateMeta();
+}
+function flashStartRound(){
+  fRound += 1;
+  fTarget = flashPick();
+  fTyped = '';
+  fState = 'show';
+  const chunkEl = document.getElementById('flashChunk');
+  chunkEl.className = 'flash-chunk';
+  chunkEl.textContent = fTarget;
+  document.getElementById('flashTyped').innerHTML = '<span class="caret"></span>';
+  const ms = flashDurationMs(fTarget.length);
+  const fill = document.getElementById('flashTimerFill');
+  fill.style.transition = 'none'; fill.style.transform = 'scaleX(1)';
+  void fill.offsetWidth;                       // restart 動畫
+  fill.style.transition = 'transform ' + ms + 'ms linear';
+  fill.style.transform = 'scaleX(0)';
+  flashUpdateMeta();
+  fTimer = setTimeout(flashHideChunk, ms);
+}
+function flashHideChunk(){
+  if(fState !== 'show') return;
+  fState = 'type';
+  const chunkEl = document.getElementById('flashChunk');
+  chunkEl.className = 'flash-chunk hidden-state';
+  chunkEl.textContent = '✦ ✦ ✦';
+}
+function flashRenderTyped(){
+  const el = document.getElementById('flashTyped');
+  let html = '';
+  for(const ch of fTyped){
+    html += (ch === ' ') ? '\u00A0'
+          : (ch === '<') ? '&lt;'
+          : (ch === '&') ? '&amp;'
+          : ch;
+  }
+  el.innerHTML = html + '<span class="caret"></span>';
+}
+function flashKey(ch){
+  if(ch === '\n'){ flashSubmit(); return; }    // Enter＝提交
+  if(ch === '\t') return;
+  if(fState === 'idle' || fState === 'feedback'){ if(fState === 'idle') flashStartRound(); return; }
+  if(fState === 'show') flashHideChunk();      // 手快唔使等消失
+  if(fState !== 'type' || ch.length !== 1) return;
+  fTyped += ch;
+  flashRenderTyped();
+}
+function flashBackspace(){
+  if(fState === 'type' || fState === 'show'){
+    if(fTyped.length){
+      fTyped = fTyped.slice(0, -1);
+      flashRenderTyped();
+    }
+  }
+}
+function flashSubmit(){
+  if(fState === 'idle'){ flashStartRound(); return; }
+  if(fState !== 'type') return;
+  fState = 'feedback';
+  fTotal += 1;
+  const ok = (fTyped === fTarget);
+  const chunkEl = document.getElementById('flashChunk');
+  if(ok){
+    fCorrect += 1; fStreak += 1; fWrongRow = 0;
+    chunkEl.className = 'flash-chunk ok';
+    chunkEl.textContent = '✓ ' + fTarget;
+    if(fStreak >= 3 && fLevel < 7){
+      fLevel += 1;
+      fStreak = 0;
+      fBestLevel = Math.max(fBestLevel, fLevel);
+    }
+  } else {
+    fStreak = 0; fWrongRow += 1;
+    chunkEl.className = 'flash-chunk bad';
+    chunkEl.textContent = '✗ ' + (fTyped || '（空）');
+    const fix = document.createElement('span');
+    fix.className = 'fix';
+    fix.textContent = '正確：' + fTarget;
+    chunkEl.appendChild(fix);
+    if(fWrongRow >= 2 && fLevel > 1){
+      fLevel -= 1;
+      fWrongRow = 0;
+    }
+  }
+  flashUpdateMeta();
+  fFeedTimer = setTimeout(()=>{
+    if(fRound >= FLASH_ROUNDS) flashFinish();
+    else flashStartRound();
+  }, ok ? 550 : 1100);                        // 錯咗睇耐啲正確答案
+}
+function flashFinish(){
+  const acc = fTotal ? Math.round(fCorrect / fTotal * 100) : 0;
+  const chunkEl = document.getElementById('flashChunk');
+  chunkEl.className = 'flash-chunk' + (fBestLevel >= 4 ? ' ok' : '');
+  chunkEl.innerHTML = '⚡ 完成 ' + fTotal + ' 輪 — 最高 Lv' + fBestLevel + ' · 正確率 ' + acc + '%';
+  document.getElementById('flashHint').textContent = '再撳任何鍵開始新一節';
+  saveHistory({wpm:0, acc, errors:fTotal - fCorrect, mode:'flash',
+               flashLevel:fBestLevel, flashRounds:fTotal, cat:category, dur:0, date:Date.now()});
+  fState = 'idle'; fRound = 0; fStreak = 0; fWrongRow = 0; fCorrect = 0; fTotal = 0;
+  try{ setTimeout(ttSync, 1200); }catch(e){}
+}
+function flashTeardown(){ flashClearTimers(); }
+
+/* ========== 📤 自動同步（Mac 本地工作站 127.0.0.1:8766） ========== */
+function ttSyncRecords(){
+  const out = [];
+  [ ['typing_trainer_history','en'],
+    ['typing_trainer_history_zh','zh'],
+    ['typing_flash_history','en'] ].forEach(([k, l]) => {
+    let arr = [];
+    try{ arr = JSON.parse(localStorage.getItem(k) || '[]'); }catch(e){ return; }
+    if(!arr.length) return;
+    arr.forEach(r => {
+      if(!r.id) r.id = 'r' + (r.date || 0).toString(36) + Math.random().toString(36).slice(2,6);
+      r.lang = r.lang || l;
+      out.push(r);
+    });
+    localStorage.setItem(k, JSON.stringify(arr));   // persist 返啲 id
+  });
+  return out;
+}
+function ttSyncShow(ok){
+  const chip = document.getElementById('syncChip');
+  if(!chip) return;
+  const t = new Date();
+  const hh = String(t.getHours()).padStart(2,'0'), mm = String(t.getMinutes()).padStart(2,'0');
+  chip.style.display = 'inline-flex';
+  chip.className = 'sync-chip' + (ok ? '' : ' fail');
+  chip.textContent = ok ? '⇪ 工作站已同步 ' + hh + ':' + mm
+                        : '⇪ 工作站離線（Mac 開住就會自動補同步）';
+}
+function ttSync(){
+  if(typeof fetch !== 'function') return;
+  const records = ttSyncRecords();
+  if(!records.length) return;
+  const opts = { method:'POST', headers:{'Content-Type':'application/json'},
+                 body: JSON.stringify({records}) };
+  fetch('http://127.0.0.1:8766/api/typing/sync', opts)
+    .then(r => { if(!r.ok) throw new Error('bad status'); return r.json(); })
+    .then(() => ttSyncShow(true))
+    .catch(() => {
+      fetch('http://localhost:8766/api/typing/sync', opts)
+        .then(r => { if(!r.ok) throw new Error('bad status'); return r.json(); })
+        .then(() => ttSyncShow(true))
+        .catch(() => ttSyncShow(false));
+    });
+}
+
+/* ========== 🎯 CSB 一鍵模擬考 ========== */
+document.getElementById('csbBtn').addEventListener('click', function(){
+  /* 5 分鐘＋紙本模式＋隱藏即時數據＋淨速評分＝考場還原 */
+  duration = 300;
+  document.querySelectorAll('#durOpts .opt').forEach(x =>
+    x.classList.toggle('active', parseInt(x.dataset.dur, 10) === 300));
+  updateDurHint();
+  if(!examMode) document.getElementById('examToggle').click();
+  applyMode('paper');
+  csbRun = true;
+  hiddenInput.focus();
+});
+
 /* ========== Panel toggle ========== */
 function togglePanel(id){
   document.getElementById(id).classList.toggle('open');
@@ -1192,6 +1698,8 @@ function resetTest(newText=false){
   renderText();
   updateProgressStat();
   updateCharStates();                    // 初始着色（遊標＋前後文行）
+  paperTypedLen = -1;
+  if(paperOn()){ renderPaper(false); typedLine.innerHTML = ''; }
   hiddenInput.value='';
 }
 
@@ -1318,6 +1826,8 @@ window.addEventListener('resize', ()=>{
 resetTest(true);  // 第一次必須揀新文本
 renderHistory();
 renderWeakKeys();
+flashIdle();
+setTimeout(ttSync, 3000);   // 開頁自動同步一次（工作站喺 Mac 就收到）
 </script>
 </body>
 </html>
