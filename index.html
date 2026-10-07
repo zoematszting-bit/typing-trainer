@@ -287,6 +287,14 @@
     padding:9px 16px; font-size:.72rem; color:#6b6552; flex-wrap:wrap;
     border-bottom:1px dashed #d8d2c0;
   }
+  .paper-head2{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding:8px 16px; border-bottom:1px dashed #d8d2c0; flex-wrap:wrap;
+  }
+  .paper-head2 .opt{font-size:.78rem; padding:5px 13px; background:#efe9da; border-color:#c5bda6; color:#4a4433;}
+  .paper-head2 .opt.active{background:var(--accent); border-color:var(--accent); color:#fff;}
+  .paper-lvldesc{font-size:.7rem; color:#8a8471;}
+  body.paper-on .grp-content{display:none;}   /* 紙本用自家分級題庫——內容類別掣收埋 */
   .paper-true{display:flex; align-items:center; gap:5px; cursor:pointer; user-select:none;}
   .paper-print{
     padding:4px 12px; border-radius:7px; border:1px solid #b8b09a; background:#efe9da;
@@ -406,7 +414,7 @@
     </div>
     <div class="dur-hint" id="durHint"></div>
   </div>
-  <div class="setup-group">
+  <div class="setup-group grp-content">
     <span class="setup-label">Content</span>
     <div class="opt-row" id="catOpts"></div>
   </div>
@@ -435,6 +443,10 @@
 
 <!-- 紙本原文面板（紙本模式专用） -->
 <div class="paper-panel" id="paperPanel" style="display:none">
+  <div class="paper-head2">
+    <div class="opt-row" id="paperLevels"></div>
+    <span class="paper-lvldesc" id="paperLvlDesc"></span>
+  </div>
   <div class="paper-head">
     <span id="paperHeadLabel">📄 紙本原文 — 眼望呢度，手喺下面打；唔會逐字變色</span>
     <label class="paper-true"><input type="checkbox" id="paperHidden"> 真·紙本（收起原文，用打印本）</label>
@@ -588,6 +600,7 @@ document.getElementById('durOpts').addEventListener('click', e => {
   document.querySelectorAll('#durOpts .opt').forEach(x=>x.classList.remove('active'));
   o.classList.add('active');
   duration = parseInt(o.dataset.dur);
+  if(duration !== 300) csbRun = false;   // 模擬考＝5分鐘制式；改時長＝取消模擬考標記
   updateDurHint();
   resetTest(true);
 });
@@ -609,6 +622,7 @@ document.getElementById('catOpts').addEventListener('click', e => {
   document.querySelectorAll('#catOpts .opt').forEach(x=>x.classList.remove('active'));
   o.classList.add('active');
   category = o.dataset.cat;
+  csbRun = false;                          // 手動改內容＝脫離一鍵模擬考設定
   resetTest(true);
 });
 
@@ -684,7 +698,7 @@ function applyMode(m){
   } else {
     flashTeardown();
     resetTest(true);
-    if(m === 'paper') renderPaper(false);
+    if(m === 'paper'){ renderPaperLevels(); renderPaper(false); }
   }
 }
 document.getElementById('modeOpts').addEventListener('click', e => {
@@ -693,7 +707,11 @@ document.getElementById('modeOpts').addEventListener('click', e => {
   hiddenInput.focus();
 });
 
-/* 紙本面板渲染：原文靜態顯示（reveal=true 時逐字標色對錯——打完揭盅用） */
+/* 紙本面板渲染：原文靜態顯示（reveal=true 時逐字標色對錯——打完揭盅用）
+   所有字符經 escHtml 走——素材有 & < > 都好都只會當文字顯示（XSS 防線） */
+function escHtml(c){
+  return c === '&' ? '&amp;' : c === '<' ? '&lt;' : c === '>' ? '&gt;' : c;
+}
 function renderPaper(reveal){
   const body = document.getElementById('paperBody');
   const hidden = document.getElementById('paperHidden').checked;
@@ -711,7 +729,7 @@ function renderPaper(reveal){
     let cls = 'pc', txt;
     if(c === '\t'){ txt = '\u00A0\u00A0\u00A0\u00A0'; }
     else if(c === '\n'){ txt = '\n'; }
-    else { txt = c === ' ' ? '\u00A0' : c; }
+    else { txt = c === ' ' ? '\u00A0' : escHtml(c); }
     if(reveal && i < typed.length){
       if(typed[i] === fullText[i]) cls += ' ok';
       else cls += ' bad';
@@ -723,10 +741,13 @@ function renderPaper(reveal){
 }
 document.getElementById('paperHidden').addEventListener('change', () => renderPaper(false));
 
-/* 打印原文（真·紙本練習配套） */
+/* 打印原文（真·紙本練習配套）——同樣走 escHtml 防線 */
 function printPassage(){
   const sheet = document.getElementById('printSheet');
-  const paras = fullText.split('\n').map(p => p.replace(/^\t/, '    ')).join('\n');
+  let paras = '';
+  for(const ch of fullText.split('\n').map(p => p.replace(/^\t/, '    ')).join('\n')){
+    paras += (ch === '&') ? '&amp;' : (ch === '<') ? '&lt;' : (ch === '>') ? '&gt;' : ch;
+  }
   sheet.innerHTML = '<div class="ps-title">Typing Practice — Paper Copy（打字練習紙本）</div>' + paras;
   document.body.classList.add('print-only');
   const done = () => { document.body.classList.remove('print-only'); window.removeEventListener('afterprint', done); };
@@ -736,6 +757,61 @@ function printPassage(){
   else done();
 }
 document.getElementById('printBtn').addEventListener('click', printPassage);
+
+/* ========== 📄 紙本三級題庫（初階／中級／高級——單詞難度＋字數階梯） ========== */
+const PAPER_BANK = {
+  1: { label: '🌱 初階', desc: '簡單常用詞 · 短句 · 每篇約 150-250 字',
+    items: [
+      '\tThe team will meet on Monday.  We will talk about the new plan.  Please bring your notes.\n\tEach person will speak for five minutes.  Speak clearly and keep it short.  Thank you for your help.',
+      '\tThis is a notice for all staff.  The office will close at three o\'clock on Friday.  Please finish your work early.\n\tIf you have any questions, please call the front desk.  You may also send an email.  We will reply soon.',
+      '\tDear Sir, I am writing to ask about the course.  I saw the notice on the board last week.  Is there still a place for me?\n\tI can come on Tuesday or Thursday.  Both days are fine for me.  I look forward to your reply.',
+      '\tThe shop opens at nine in the morning.  It closes at six in the evening.  There is a small park next to the shop.\n\tYou can take the bus or the train.  The bus is cheaper but slower.  The train takes only ten minutes.',
+      '\tPlease note the change of time.  The class will start at two o\'clock, not three.  The room stays the same.\n\tBring your own pen and paper.  We will not use the computer this week.  See you all on Wednesday.'
+    ] },
+  2: { label: '📗 中級', desc: '日常辦公詞彙 · 中句 · 每篇約 350-450 字',
+    items: [
+      '\tFurther to our meeting held on 12 October, I would like to confirm the arrangements for the staff training session scheduled for next month.  All participants should complete the registration form before the deadline.\n\tThe session will cover basic office skills, including letter writing, file management and telephone manners.  Attendance will be recorded and reported to the department head each month.',
+      '\tThe Department wishes to remind members of the public that applications for the housing scheme must be submitted on or before 30 November.  Late applications will not be considered under any circumstances.\n\tApplicants should ensure that all supporting documents are complete and up to date.  Incomplete applications may cause delay in processing, and the Department will not be responsible for any loss arising therefrom.',
+      '\tThank you for your letter dated 5 October regarding the maintenance of the common areas of the building.  Our staff have inspected the premises and confirmed the reported problems.\n\tRepair works will commence next week and are expected to finish within ten working days.  We apologise for any inconvenience caused during the repair period.',
+      '\tThe annual health check will be held at the staff clinic from 9 a.m. to 5 p.m. on weekdays.  Each staff member may book one session during working hours with prior approval from their supervisor.\n\tPlease bring your staff card and the completed health questionnaire.  Results will be sent to you by post within two weeks after the check.',
+      '\tWe refer to your enquiry about the use of the meeting room on the fifth floor.  The room is available for booking between 9 a.m. and 7 p.m. from Monday to Saturday, except public holidays.\n\tBookings must be made at least one working day in advance.  Users are responsible for keeping the room clean and returning all equipment after use.'
+    ] },
+  3: { label: '🔥 高級', desc: '正式公文法律詞彙 · 長句 · 每篇約 500-650 字',
+    items: [
+      '\tPursuant to section 12 of the Employment Ordinance, an employer shall, upon termination of a contract of employment, pay to the employee all outstanding wages and other sums due within seven days from the date of termination.  Failure to comply with the aforesaid provision may render the employer liable to prosecution and to a fine as stipulated under the Ordinance.\n\tFor the avoidance of doubt, the expression wages as defined in the Ordinance shall include, but shall not be limited to, basic salary, commission, and any allowances of a contractual nature.  Notwithstanding anything to the contrary herein, the provisions of this letter shall be construed in accordance with the laws of the Hong Kong Special Administrative Region.',
+      '\tIn accordance with the conditions of the tender documents, the successful tenderer shall complete the whole of the works described in the schedule within eighteen months from the date of commencement.  Extensions of time will only be granted in circumstances where delay is caused by force majeure or by any act or omission of the Government.\n\tThe Supervisor may, at his absolute discretion, require the tenderer to remove from the site any workmanship or materials which are, in his opinion, not in conformity with the specified requirements.  No payment shall be made in respect of such rejected works, and the tenderer shall bear all costs arising therefrom, including the cost of removal and reinstatement.',
+      '\tNotwithstanding any provision contained herein to the contrary, the Government reserves the right to amend, suspend or discontinue the hereinmentioned scheme at any time without prior notice, and shall not be liable for any loss, damage or expense whatsoever arising from such amendment, suspension or discontinuation.\n\tApplicants who have knowingly provided false or misleading information in support of their applications shall be disqualified forthwith, and any advantage obtained thereby shall be forfeited.  The Government may further refer such cases to the relevant law enforcement agencies for consideration of prosecution.  These conditions shall be binding upon the applicants upon submission of their applications.',
+      '\tWith effect from 1 January, all contracts for the supply of goods and services to the Department shall incorporate the latest version of the general conditions of contract, copies of which are available for inspection at the headquarters of the Department during normal office hours.\n\tSuppliers who fail to deliver the goods within the stipulated time or who deliver goods not conforming to the agreed specifications shall be liable to liquidated damages as provided for in the contract.  The Department furthermore reserves the right to terminate the contract forthwith in the event of a material breach, without prejudice to any other rights and remedies available to it at law.',
+      '\tThe committee, having considered the submissions from the various bureaux and departments, hereby recommends that the existing arrangement be maintained for a further period of twelve months, subject to a review to be conducted not later than the end of the third quarter.\n\tIt is further recommended that a working group be established to examine, in consultation with the relevant stakeholders, the feasibility of introducing enhanced measures with a view to improving the overall efficiency of the scheme.  The findings of the working group shall be submitted to the committee for consideration within six months of its establishment.'
+    ] }
+};
+let paperLevel = Math.min(3, Math.max(1, parseInt(localStorage.getItem('tt_paper_lvl') || '1', 10) || 1));
+let usedPaperPassages = [];   // 無放回（同一測試內用過嘅篇唔重抽）
+
+function renderPaperLevels(){
+  document.getElementById('paperLevels').innerHTML = [1, 2, 3].map(l =>
+    '<span class="opt' + (l === paperLevel ? ' active' : '') + '" data-lvl="' + l + '">' + PAPER_BANK[l].label + '</span>'
+  ).join('');
+  document.getElementById('paperLvlDesc').textContent = PAPER_BANK[paperLevel].desc;
+}
+document.getElementById('paperLevels').addEventListener('click', e => {
+  const o = e.target.closest('.opt'); if(!o) return;
+  const l = parseInt(o.dataset.lvl, 10);
+  if(!PAPER_BANK[l] || l === paperLevel) return;
+  paperLevel = l;
+  localStorage.setItem('tt_paper_lvl', String(l));
+  renderPaperLevels();
+  resetTest(true);
+});
+function pickPaperText(){
+  const pool = PAPER_BANK[paperLevel].items;
+  if(usedPaperPassages.length >= pool.length) usedPaperPassages = [];
+  let p;
+  do { p = pool[Math.floor(Math.random() * pool.length)]; }
+  while(usedPaperPassages.includes(p));
+  usedPaperPassages.push(p);
+  return p;
+}
 
 /* ===== 進度統計（當前篇單位：英文 words／中文字） ===== */
 function countWords(s){
@@ -900,6 +976,7 @@ document.getElementById('examToggle').addEventListener('click', function(){
    打晒成個池先重置。長文需求由接篇制自然處理（打完一篇自動接下一篇）。 */
 let usedPassages = [];
 function pickText(){
+  if(paperOn()) return pickPaperText();   // 紙本模式：三級題庫分流
   const pool = TEXTS[category];
   if(usedPassages.length >= pool.length){
     usedPassages = [];   // 用晒成個池，重置再抽
@@ -1324,9 +1401,11 @@ function finishTest(){
   // 紙本模式：打完揭盅（原文逐字標色對錯）
   if(paperOn()) renderPaper(true);
 
-  // Save history（v2：mode＋netWpm＋常錯字＋唯一 id）
-  saveHistory({wpm:finalWpm, acc, errors, netWpm, mode:modeTag,
-               weak:topWeakChars(5), cat:category, dur:duration, date:Date.now()});
+  // Save history（v2：mode＋netWpm＋常錯字＋唯一 id；紙本附級別）
+  const rec = {wpm:finalWpm, acc, errors, netWpm, mode:modeTag,
+               weak:topWeakChars(5), cat:category, dur:duration, date:Date.now()};
+  if(modeTag === 'paper' || modeTag === 'csb') rec.paperLevel = paperLevel;
+  saveHistory(rec);
   csbRun = false;
 
   // 完成測試 → 自動同步紀錄入工作站（Mac 本地）
@@ -1664,13 +1743,16 @@ function ttSync(){
 
 /* ========== 🎯 CSB 一鍵模擬考 ========== */
 document.getElementById('csbBtn').addEventListener('click', function(){
-  /* 5 分鐘＋紙本模式＋隱藏即時數據＋淨速評分＝考場還原 */
+  /* 5 分鐘＋紙本高級題（貼近實考公文難度）＋隱藏即時數據＋淨速評分＝考場還原 */
   duration = 300;
   document.querySelectorAll('#durOpts .opt').forEach(x =>
     x.classList.toggle('active', parseInt(x.dataset.dur, 10) === 300));
   updateDurHint();
   if(!examMode) document.getElementById('examToggle').click();
-  applyMode('paper');
+  paperLevel = 3;                                  // 模擬考＝高級難度
+  localStorage.setItem('tt_paper_lvl', '3');
+  applyMode('paper');                              // 內含 renderPaperLevels＋新篇
+  renderPaperLevels();
   csbRun = true;
   hiddenInput.focus();
 });
@@ -1694,7 +1776,7 @@ function resetTest(newText=false){
   liveStats.classList.remove('show');
   focusHint.classList.remove('hidden');
   document.getElementById('results').classList.remove('show');
-  if(newText){ usedPassages = []; fullText = pickText(); passageEnds = [fullText.length]; }
+  if(newText){ usedPassages = []; usedPaperPassages = []; fullText = pickText(); passageEnds = [fullText.length]; }
   renderText();
   updateProgressStat();
   updateCharStates();                    // 初始着色（遊標＋前後文行）
@@ -1709,6 +1791,7 @@ document.getElementById('newTextBtn').addEventListener('click', ()=>{ resetTest(
 
 /* Focus management: clicking the box focuses the hidden input */
 typeBox.addEventListener('click', ()=>{ hiddenInput.focus(); });
+document.getElementById('flashBox').addEventListener('click', ()=>{ hiddenInput.focus(); });  // 手機：撳閃卡區彈鍵盤
 hiddenInput.addEventListener('focus', ()=>{ typeBox.classList.add('focus'); focusHint.classList.add('hidden'); });
 hiddenInput.addEventListener('blur', ()=>{ ttComposing = false; if(!testFinished) typeBox.classList.remove('focus'); });
 
