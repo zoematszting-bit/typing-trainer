@@ -109,6 +109,7 @@
   /* 盲打：主行打字結果唔顯色（淨係原文 muted） */
   .type-area.blind .type-line.target .char.correct{color:var(--muted); background:none;}
   .type-area.blind .type-line.target .char.incorrect{color:var(--muted); background:none;}
+  .type-line .char.missed{ color:var(--pale-yellow-text, #b8860b); background:rgba(251,191,36,.22); border-radius:2px; }
   .type-line .char.pending{color:rgba(154,160,166,.4);}  /* shadow line: untyped chars shown faint */
   .type-line .char.has-cursor{position:relative;}
   .type-line .char.has-cursor::before{
@@ -721,20 +722,36 @@ function renderPaper(reveal){
     return;
   }
   document.getElementById('paperHeadLabel').textContent = reveal
-    ? '📄 揭盅 — 綠＝啱、紅＝錯'
+    ? '📄 揭盅 — 綠＝啱、紅＝錯、橙＝漏（考試標準：錯一格唔連坐後面）'
     : '📄 紙本原文 — 眼望呢度，手喺下面打；唔會逐字變色';
   let html = '';
-  for(let i = 0; i < fullText.length; i++){
-    const c = fullText[i];
-    let cls = 'pc', txt;
-    if(c === '\t'){ txt = '\u00A0\u00A0\u00A0\u00A0'; }
-    else if(c === '\n'){ txt = '\n'; }
-    else { txt = c === ' ' ? '\u00A0' : escHtml(c); }
-    if(reveal && i < typed.length){
-      if(typed[i] === fullText[i]) cls += ' ok';
-      else cls += ' bad';
+  if(reveal){
+    // 考試標準 diff：match 綠、打錯紅（顯示打咗嘅字）、漏橙、多打紅字插入顯示
+    const d = computeDiff();
+    const disp = c => c === '\t' ? '\u00A0\u00A0\u00A0\u00A0' : (c === '\n' ? '\n' : (c === ' ' ? '\u00A0' : escHtml(c)));
+    for(const op of d.ops){
+      if(op.t === 'm'){
+        html += '<span class="pc ok">' + disp(op.a) + '</span>';
+      } else if(op.t === 's'){
+        html += '<span class="pc bad" title="原文：' + escHtml(op.a === ' ' ? '␣' : op.a) + '">' + disp(op.b) + '</span>';
+      } else if(op.t === 'd'){
+        html += '<span class="pc miss" title="漏咗呢個字">' + disp(op.a) + '</span>';
+      } else if(op.t === 'i'){
+        html += '<span class="pc extra" title="多打咗">' + disp(op.b) + '</span>';
+      } else {
+        // td：尾部未打（未完成）——原色顯示，唔標錯
+        html += '<span class="pc">' + disp(op.a) + '</span>';
+      }
     }
-    html += '<span class="' + cls + '">' + txt + '</span>';
+  } else {
+    for(let i = 0; i < fullText.length; i++){
+      const c = fullText[i];
+      let cls = 'pc', txt;
+      if(c === '\t'){ txt = '\u00A0\u00A0\u00A0\u00A0'; }
+      else if(c === '\n'){ txt = '\n'; }
+      else { txt = c === ' ' ? '\u00A0' : escHtml(c); }
+      html += '<span class="' + cls + '">' + txt + '</span>';
+    }
   }
   body.innerHTML = html;
   if(reveal) body.scrollTop = body.scrollHeight;
@@ -1171,19 +1188,33 @@ function updateCharStates(){
     shadow[i].className = 'char pending';
 
     if(g < typed.length){
-      // 跟打行：打啱顯示原文字符＋綠；打錯顯示錯字符＋紅
-      // （Tab/Enter 位打錯顯示目標字符佔位，唔破壞段落顯示）
-      // 每次都 rewrite textContent：確保 backspace 由錯返啱／cursor 移返嗰陣
-      // 唔會殘留舊錯字（兩行文字永遠對得上）
+      // 跟打行（考試標準 diff）：'m' 綠（原文字符）、's' 紅（打咗嘅字）、
+      // 'd' 橙（漏咗——原文有但 cursor 已過）；多打（insert）唔佔格只計分。
+      // 打錯一格唔連坐：後面嘅字 diff 會重新對齊返原文照樣綠。
+      const d = computeDiff();
+      const st = d.fStat ? d.fStat[g] : null;
       shadow[i].classList.remove('pending');
-      if(typed[g] === fullText[g]){
+      if(st === 'm'){
         shadow[i].textContent = displayChar(fullText[g]);
         shadow[i].classList.add('correct');
-      } else {
+      } else if(st === 's'){
         shadow[i].classList.add('incorrect');
         const wrongAtSpecial = fullText[g] === '\t' || fullText[g] === '\n';
-        shadow[i].textContent = wrongAtSpecial ? displayChar(fullText[g]) : displayChar(typed[g]);
+        const shown = d.subChar && d.subChar[g] !== undefined ? d.subChar[g] : typed[g];
+        shadow[i].textContent = wrongAtSpecial ? displayChar(fullText[g]) : displayChar(shown);
         if(fullText[g]===' ') shadow[i].classList.add('space-incorrect');
+      } else if(st === 'd'){
+        shadow[i].textContent = displayChar(fullText[g]);
+        shadow[i].classList.add('missed');
+      } else {
+        // 窗口未覆蓋（極罕見）——fallback 舊 positional
+        if(typed[g] === fullText[g]){
+          shadow[i].textContent = displayChar(fullText[g]);
+          shadow[i].classList.add('correct');
+        } else {
+          shadow[i].classList.add('incorrect');
+          shadow[i].textContent = displayChar(typed[g]);
+        }
       }
     } else if(g === typed.length){
       target[i].classList.add('current');   // 原文行：金色提示打緊邊個字
@@ -1302,6 +1333,59 @@ function handleKey(e){
   }
 }
 
+/* ========== 考試標準 diff（LCS 對齊）==========
+   綠＝啱、紅＝錯，但「錯」唔連坐：打多咗一個字只嗰個字算錯（insert），
+   後面嘅字會重新對齊原文（match 綠）；打錯字（substitute）紅一格；
+   跳過咗原文某字（miss）橙一格。評分＝正確字符數（LCS 長度），
+   錯誤＝sub+ins+miss。同 CSB 考場「你交出嘅文件 vs 原文」逐字對比同一路數。 */
+function lcsDiff(a, b){
+  // 返回 ops：[{t:'m'|'s'|'i'|'d', a?, b?, ai, bi}] — m=match s=sub i=insert(多打) d=miss(漏)
+  const n = a.length, m = b.length;
+  const dp = new Uint32Array((n+1)*(m+1));
+  for(let i = n-1; i >= 0; i--){
+    for(let j = m-1; j >= 0; j--){
+      dp[i*(m+1)+j] = a[i] === b[j]
+        ? dp[(i+1)*(m+1)+j+1] + 1
+        : Math.max(dp[(i+1)*(m+1)+j], dp[i*(m+1)+j+1]);
+    }
+  }
+  const ops = [];
+  let i = 0, j = 0;
+  while(i < n && j < m){
+    if(a[i] === b[j]){ ops.push({t:'m', a:a[i], b:b[j], ai:i, bi:j}); i++; j++; }
+    else if(dp[(i+1)*(m+1)+j+1] === dp[i*(m+1)+j]){
+      // sub 唔損失 match 數先好用（打錯一格——顯示友好）；LCS 長度不變
+      ops.push({t:'s', a:a[i], b:b[j], ai:i, bi:j}); i++; j++;
+    }
+    else if(dp[(i+1)*(m+1)+j] > dp[i*(m+1)+j+1]){ ops.push({t:'d', a:a[i], ai:i}); i++; }       // 原文被跳過
+    else { ops.push({t:'i', b:b[j], bi:j}); j++; }                                               // 打多咗
+  }
+  while(i < n){ ops.push({t:'td', a:a[i], ai:i}); i++; }   // 尾部未打＝未完成，唔算錯（考試標準）
+  while(j < m){ ops.push({t:'i', b:b[j], bi:j}); j++; }   // 打多咗
+  return ops;
+}
+let _diffCache = { sig: '', ops: null, fStat: null, stats: null };
+function computeDiff(){
+  const sig = typed.length + '|' + fullText.length + '|' + (typed.slice(-3) + fullText.slice(-3));
+  if(_diffCache.sig === sig) return _diffCache;
+  const a = fullText.slice(0, typed.length);   // 窗口＝typed 覆蓋範圍（防未打原文盜 match）
+  const ops = lcsDiff(a, typed);
+  // fStat[ai] = 'm'|'s'|'d'；stats = {correct, sub, ins, miss}
+  const fStat = new Array(a.length).fill(null);
+  const stats = {correct:0, sub:0, ins:0, miss:0};
+  const subChar = {};   // ai -> 打咗嘅字符（sub 顯示用）
+  for(const op of ops){
+    if(op.t === 'm'){ fStat[op.ai] = 'm'; stats.correct++; }
+    else if(op.t === 's'){ fStat[op.ai] = 's'; stats.sub++; subChar[op.ai] = op.b; }
+    else if(op.t === 'd'){ fStat[op.ai] = 'd'; stats.miss++; }
+    // td（尾部未打）唔計錯誤、fStat 留 null（顯示唔橙色）
+    else if(op.t === 'i'){ stats.ins++; }
+    // td（尾部未打）＝未完成，唔計任何錯誤
+  }
+  _diffCache = { sig, ops, fStat: fStat, stats: stats, subChar };
+  return _diffCache;
+}
+
 /* ========== Calculations ========== */
 function calcWPM(str, seconds){
   if(lang === 'zh'){
@@ -1312,25 +1396,17 @@ function calcWPM(str, seconds){
   return Math.round(words / (seconds/60));
 }
 function calcAccuracy(){
-  let correct=0;
-  for(let i=0;i<typed.length;i++){
-    if(typed[i]===fullText[i]) correct++;
-  }
-  return typed.length===0 ? 100 : Math.round(correct/typed.length*100);
+  if(typed.length===0) return 100;
+  const s = computeDiff().stats;
+  return Math.round(s.correct / typed.length * 100);
 }
 function countErrors(){
-  let err=0;
-  for(let i=0;i<typed.length;i++){
-    if(typed[i]!==fullText[i]) err++;
-  }
-  return err;
+  // 考試標準：打出嚟嘅字符入面，有幾多個唔啱（= 總打字數 - 正確對齊數）
+  // 跳過咗原文某字唔算「錯」——只影響完成度／淨速（CSB 淨速＝correct/5 每分鐘）
+  return typed.length - computeDiff().stats.correct;
 }
 function countCorrect(){
-  let c=0;
-  for(let i=0;i<typed.length;i++){
-    if(typed[i]===fullText[i]) c++;
-  }
-  return c;
+  return computeDiff().stats.correct;
 }
 /* 淨速（CSB 式誠實數字）：只計啱嘅字符——英：correct/5 每分鐘；中：correct 每分鐘 */
 function calcNetWPM(correctChars, seconds){
