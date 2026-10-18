@@ -270,6 +270,14 @@
   }
   .btn-csb:hover{background:var(--accent); color:#fff;}
 
+  /* ===== 最低劑量（微習慣入場門） ===== */
+  .btn-min{
+    padding:7px 16px; border-radius:9px; border:1px solid var(--green);
+    background:rgba(52,211,153,.12); color:var(--green); cursor:pointer;
+    font-size:.82rem; font-weight:600; transition:all .15s; margin-left:4px;
+  }
+  .btn-min:hover{background:var(--green); color:#0f1115;}
+
   /* ===== 同步狀態點（工作站） ===== */
   .sync-chip{
     display:inline-flex; align-items:center; gap:5px; margin-left:10px;
@@ -441,6 +449,9 @@
 
 <!-- CSB one-click mock exam -->
 <button class="btn-csb" id="csbBtn" title="5分鐘·紙本·隱藏即時數據·CSB淨速評分">🎯 一鍵模擬考（5 min）</button>
+
+<!-- 最低劑量（微習慣入場門·2026-10-18 W1復盤介入） -->
+<button class="btn-min" id="minBtn" title="2分鐘·正常模式·即撳即打——先出現，先完美">🚀 最低劑量（2 min）</button>
 
 <!-- 紙本原文面板（紙本模式专用） -->
 <div class="paper-panel" id="paperPanel" style="display:none">
@@ -1816,6 +1827,20 @@ function ttSync(){
         .catch(() => ttSyncShow(false));
     });
 }
+
+/* ========== 🚀 最低劑量（微習慣入場門·2026-10-18 W1復盤介入） ========== */
+/* Fogg 行為模型：動機低→降低能力門檻——2分鐘嘅成本要細過「唔做」；
+   完整訓練照舊係四式配方，呢個掣只係道門 */
+document.getElementById('minBtn').addEventListener('click', function(){
+  duration = 120;
+  document.querySelectorAll('#durOpts .opt').forEach(x =>
+    x.classList.toggle('active', parseInt(x.dataset.dur, 10) === 120));
+  updateDurHint();
+  if(examMode) document.getElementById('examToggle').click();   // 最低劑量要見到即時回饋
+  csbRun = false;
+  applyMode('normal');
+  hiddenInput.focus();
+});
 
 /* ========== 🎯 CSB 一鍵模擬考 ========== */
 document.getElementById('csbBtn').addEventListener('click', function(){
