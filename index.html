@@ -311,9 +311,13 @@
   }
   .paper-print:hover{background:#e2dbc8;}
   .paper-body{
-    padding:20px 28px; max-height:300px; overflow-y:auto;
-    font-family:Georgia,'Times New Roman',serif; font-size:1.02rem; line-height:1.95;
-    white-space:pre-wrap; word-break:break-word;
+    padding:18px 44px; max-height:340px; overflow-y:auto;
+  }
+  /* 紙本行＝跟打行同一排版（同 mono 字體大小＋同一 lines 斷行）——考場紙本格式＝屏幕格式，
+     打字時紙本每行＝跟打每行，一眼對位（2026-11-07 Zoe 指示） */
+  .paper-line{
+    font-family:var(--mono); font-size:1.34rem; line-height:2.3; letter-spacing:.4px;
+    white-space:pre; min-height:1.5em;
   }
   .paper-body .pc{color:#1d1d18;}
   .paper-body .pc.ok{color:#1a7f4b;}
@@ -366,20 +370,23 @@
   body.flash-on .live-stats{display:none;}
   body.flash-on #ftPanel{display:none!important;}
 
-  /* ===== 打印（真·紙本） ===== */
+  /* ===== 打印（真·紙本）——打印本＝屏幕 lines 斷行（mono），行數同跟打一致 ===== */
   #printSheet{display:none;}
   @media print{
     body.print-only > *:not(#printSheet){display:none!important;}
     body.print-only #printSheet{display:block;}
     #printSheet{
-      font-family:Georgia,'Times New Roman',serif; color:#000; font-size:12.5pt;
-      line-height:2.0; white-space:pre-wrap; padding:8mm 2mm;
+      font-family:'SF Mono','Fira Code','Cascadia Code',Menlo,Consolas,monospace;
+      color:#000; font-size:12.5pt; line-height:2.0; padding:8mm 2mm;
     }
+    #printSheet .ps-line{white-space:pre; min-height:1.5em;}
     #printSheet .ps-title{font-weight:700; text-align:center; margin-bottom:14px; font-size:11pt;}
   }
 
   @media(max-width:600px){
     .type-line{font-size:1.05rem; line-height:2.1;}
+    .paper-line{font-size:1.05rem; line-height:2.1;}   /* 紙本行同跟打行同步縮細 */
+    .paper-body{padding:14px 20px;}
     .type-area{max-height:8.8em;}
     .type-line.ctx{font-size:.92rem; line-height:1.9;}
     .type-box{padding:20px;}
@@ -734,34 +741,52 @@ function renderPaper(reveal){
   }
   document.getElementById('paperHeadLabel').textContent = reveal
     ? '📄 揭盅 — 綠＝啱、紅＝錯、橙＝漏（考試標準：錯一格唔連坐後面）'
-    : '📄 紙本原文 — 眼望呢度，手喺下面打；唔會逐字變色';
+    : '📄 紙本原文 — 格式／行數／字體大細＝下面打字區一模一樣，逐行對位';
+  // 考場還原（2026-11-07）：紙本用「跟打行同一 lines 斷行＋同 mono 字體」渲染——
+  // 紙本第 N 行＝跟打第 N 行，打字時一眼對位有參考性
+  if(!lines.length || lines[lines.length - 1].end !== fullText.length) renderText();
+  const disp = c => c === '\t' ? '\u00A0\u00A0\u00A0\u00A0' : (c === '\n' ? '↵' : (c === ' ' ? '\u00A0' : escHtml(c)));
+  const span = (cls, ch, title) => '<span class="' + cls + '"' + (title ? ' title="' + title + '"' : '') + '>' + disp(ch) + '</span>';
   let html = '';
   if(reveal){
-    // 考試標準 diff：match 綠、打錯紅（顯示打咗嘅字）、漏橙、多打紅字插入顯示
+    // 考試標準 diff 對位：m 綠、打錯紅（顯示打咗嘅字）、漏橙、多打紅字插喺位置前、未打原色
     const d = computeDiff();
-    const disp = c => c === '\t' ? '\u00A0\u00A0\u00A0\u00A0' : (c === '\n' ? '\n' : (c === ' ' ? '\u00A0' : escHtml(c)));
+    const stat = {};       // 原文位置 ai -> {cls, ch, title}
+    const extras = {};     // 原文位置 ai -> [多打字符…]（顯示喺該位置之前）
+    let tailExtras = [];   // 打過原文總長嘅多打字符（行尾追加）
+    let pending = [];
     for(const op of d.ops){
-      if(op.t === 'm'){
-        html += '<span class="pc ok">' + disp(op.a) + '</span>';
-      } else if(op.t === 's'){
-        html += '<span class="pc bad" title="原文：' + escHtml(op.a === ' ' ? '␣' : op.a) + '">' + disp(op.b) + '</span>';
-      } else if(op.t === 'd'){
-        html += '<span class="pc miss" title="漏咗呢個字">' + disp(op.a) + '</span>';
-      } else if(op.t === 'i'){
-        html += '<span class="pc extra" title="多打咗">' + disp(op.b) + '</span>';
-      } else {
-        // td：尾部未打（未完成）——原色顯示，唔標錯
-        html += '<span class="pc">' + disp(op.a) + '</span>';
+      if(op.t === 'i'){ pending.push(op.b); continue; }
+      if(pending.length){
+        if(op.ai === undefined){ tailExtras = tailExtras.concat(pending); }
+        else { extras[op.ai] = (extras[op.ai] || []).concat(pending); }
+        pending = [];
       }
+      if(op.t === 'm'){ stat[op.ai] = {cls:'pc ok', ch:op.a}; }
+      else if(op.t === 's'){ stat[op.ai] = {cls:'pc bad', ch:op.b, title:'原文：' + (op.a === ' ' ? '␣' : op.a).toString().replace(/"/g,'')}; }
+      else if(op.t === 'd'){ stat[op.ai] = {cls:'pc miss', ch:op.a, title:'漏咗呢個字'}; }
+      // td（尾部未打）＝原色，stat 留空
+    }
+    if(pending.length) tailExtras = tailExtras.concat(pending);
+    for(const L of lines){
+      html += '<div class="paper-line">';
+      for(let g = L.start; g < L.end; g++){
+        if(extras[g]) for(const x of extras[g]) html += span('pc extra', x, '多打咗');
+        const s = stat[g];
+        html += s ? span(s.cls, s.ch, s.title) : span('pc', fullText[g]);
+      }
+      html += '</div>';
+    }
+    if(tailExtras.length){
+      let t = '<div class="paper-line">';
+      for(const x of tailExtras) t += span('pc extra', x, '多打咗');
+      html += t + '</div>';
     }
   } else {
-    for(let i = 0; i < fullText.length; i++){
-      const c = fullText[i];
-      let cls = 'pc', txt;
-      if(c === '\t'){ txt = '\u00A0\u00A0\u00A0\u00A0'; }
-      else if(c === '\n'){ txt = '\n'; }
-      else { txt = c === ' ' ? '\u00A0' : escHtml(c); }
-      html += '<span class="' + cls + '">' + txt + '</span>';
+    for(const L of lines){
+      html += '<div class="paper-line">';
+      for(let i = 0; i < L.text.length; i++) html += span('pc', L.text[i]);
+      html += '</div>';
     }
   }
   body.innerHTML = html;
@@ -769,14 +794,20 @@ function renderPaper(reveal){
 }
 document.getElementById('paperHidden').addEventListener('change', () => renderPaper(false));
 
-/* 打印原文（真·紙本練習配套）——同樣走 escHtml 防線 */
+/* 打印原文（真·紙本練習配套）——同樣走 escHtml 防線
+   打印本＝屏幕 lines 斷行（行數同跟打／紙本面板一致） */
 function printPassage(){
   const sheet = document.getElementById('printSheet');
-  let paras = '';
-  for(const ch of fullText.split('\n').map(p => p.replace(/^\t/, '    ')).join('\n')){
-    paras += (ch === '&') ? '&amp;' : (ch === '<') ? '&lt;' : (ch === '>') ? '&gt;' : ch;
+  if(!lines.length || lines[lines.length - 1].end !== fullText.length) renderText();
+  let html = '<div class="ps-title">Typing Practice — Paper Copy（打字練習紙本）</div>';
+  for(const L of lines){
+    let row = '';
+    for(const ch of L.text){
+      row += ch === '\t' ? '    ' : (ch === '\n' ? '↵' : escHtml(ch));
+    }
+    html += '<div class="ps-line">' + row + '</div>';
   }
-  sheet.innerHTML = '<div class="ps-title">Typing Practice — Paper Copy（打字練習紙本）</div>' + paras;
+  sheet.innerHTML = html;
   document.body.classList.add('print-only');
   const done = () => { document.body.classList.remove('print-only'); window.removeEventListener('afterprint', done); };
   window.addEventListener('afterprint', done);
@@ -1990,6 +2021,7 @@ window.addEventListener('resize', ()=>{
       renderText();          // 重新按新寬度斬行（curLine 會重設）
       typed = keepTyped;
       updateCharStates();    // 用返實際進度跳返去正確嘅行
+      if(paperOn()) renderPaper(false);   // 紙本行同新斷行同步（紙本＝靜態原文，重刷零洩漏）
     }
   }, 250);
 });
