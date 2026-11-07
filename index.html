@@ -324,6 +324,7 @@
   .paper-body .pc.bad{color:#c0392b; background:rgba(192,57,43,.12); border-radius:2px;}
   .paper-empty{color:#8a8471; font-style:italic;}
   body.paper-on .type-area{display:flex; flex-direction:column; justify-content:flex-end;}
+  .type-line.typed .pgrid-row{white-space:pre-wrap; min-height:1.5em;}   /* 打字區格網行＝紙本行同排版 */
   body.paper-on .type-line.ctx,
   body.paper-on .type-line.target{display:none;}
   body.paper-on .type-line.typed{color:var(--txt);}
@@ -1169,30 +1170,45 @@ function renderCurrentLine(){
   typedLine.appendChild(yFrag);
 }
 
-/* 紙本模式打字區：淨係顯示打咗嘅字（增量 append，backspace 全重建） */
+/* 紙本模式打字區：同一 lines 格網逐行顯示（第 N 格行＝打字流第 N 段，段長＝原文行長）
+   ——考場還原 v2（2026-11-07）：打啱原文時，打字區每一行同紙本每一行完全對位；
+   每鍵全重建（純文字節點＋每行一個 div——零 span，長文都係平價操作） */
 let paperTypedLen = -1;
 function paperDisplayChar(c){
   if(c === '\t') return '\u00A0\u00A0\u00A0\u00A0';
-  if(c === '\n') return '\n';            // 真換行（Word 式段落）
-  return c;
+  if(c === '\n') return '↵';
+  return c === ' ' ? '\u00A0' : c;
+}
+function paperRowText(chunk){
+  let out = '';
+  for(const ch of chunk) out += paperDisplayChar(ch);
+  return out;
 }
 function renderPaperTyped(){
-  if(typed.length > 0 && typed.length === paperTypedLen + 1){
-    const s = document.createElement('span');
-    s.className = 'char';
-    s.textContent = paperDisplayChar(typed[typed.length - 1]);
-    typedLine.appendChild(s);
-  } else {
-    typedLine.innerHTML = '';
-    const frag = document.createDocumentFragment();
-    for(let i = 0; i < typed.length; i++){
-      const s = document.createElement('span');
-      s.className = 'char';
-      s.textContent = paperDisplayChar(typed[i]);
-      frag.appendChild(s);
-    }
-    typedLine.appendChild(frag);
+  typedLine.innerHTML = '';
+  const frag = document.createDocumentFragment();
+  let start = 0;
+  for(const L of lines){
+    if(start >= typed.length) break;
+    const d = document.createElement('div');
+    d.className = 'pgrid-row';
+    d.textContent = paperRowText(typed.slice(start, start + L.text.length));
+    frag.appendChild(d);
+    start += L.text.length;
   }
+  if(start < typed.length){                    // 打多咗（超出原文）——尾行照顯示
+    const d = document.createElement('div');
+    d.className = 'pgrid-row';
+    d.textContent = paperRowText(typed.slice(start));
+    frag.appendChild(d);
+  }
+  if(!frag.childNodes.length){                 // 未開打——空行墊底
+    const d = document.createElement('div');
+    d.className = 'pgrid-row';
+    d.textContent = '\u00A0';
+    frag.appendChild(d);
+  }
+  typedLine.appendChild(frag);
   paperTypedLen = typed.length;
 }
 
